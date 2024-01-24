@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Use this script to build the five docker images: one for PRAC (our
+# work), and one each for Duoram, Floram, 3P Circuit ORAM, and Ramen
+# (the four systems we compare against).  We made the dockerization
+# scripts for these latter systems as well.
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+mkdir -p comps
+
+# Clone the given repo or update it
+# Args: repo_url dirname branch_or_tag
+clone_or_update() {
+    repourl="$1"
+    repodir="$2"
+    tag="$3"
+    if [ -d comps/${repodir}/.git ]; then
+        ( cd comps/${repodir} && git fetch --tags -f origin && git checkout $tag ) || exit 1
+    else
+        ( cd comps && git clone ${repourl} ${repodir} && cd ${repodir} && git checkout $tag ) || exit 1
+    fi
+}
+
+# See if we need to clone those other four repos
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/avadapal/floram-repro-prac \
+    floram master
+
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/avadapal/3p-circuit-oram-prac-repro \
+    circuit-oram master
+
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/avadapal/ramen-dockerization \
+    ramen master
+
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/iang/duoram-prac-repro \
+    duoram prac_repro
+
+# Stop any existing dockers
+./stop-all-dockers
+
+# Build the five docker images
+echo "Building PRAC docker..."
+echo
+( cd ../docker && ./build-docker ) || exit 1
+echo
+echo "Building Duoram docker..."
+echo
+( cd comps/duoram/Docker && ./build-docker ) || exit 1
+echo
+echo "Building Floram docker..."
+echo
+( cd comps/floram && ./build-docker ) || exit 1
+echo
+echo "Building Circuit ORAM docker..."
+echo
+( cd comps/circuit-oram/docker && ./build-docker ) || exit 1
+echo
+echo "Building Ramen docker..."
+echo
+( cd comps/ramen/Docker && ./build-docker ) || exit 1
+echo
+echo "Done."

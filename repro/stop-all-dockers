@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Stop all five sets of dockers.  This is useful if, for example, a run
+# of repro-all-dockers is interrupted, leaving some dockers (and
+# potentionally the processes therein) running.
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+# PRAC
+echo Stopping PRAC dockers
+echo
+( cd ../docker && ./stop-docker ) || exit 1
+
+# Duoram
+echo
+echo Stopping Duoram dockers
+echo
+( cd comps/duoram/Docker && ./stop-docker ) || exit 1
+
+# Floram
+echo
+echo Stopping Floram dockers
+echo
+( cd comps/floram && ./stop-docker ) || exit 1
+
+# Circuit ORAM
+echo
+echo Stopping Circuit ORAM dockers
+echo
+( cd comps/circuit-oram/docker && ./stop-docker ) || exit 1
+
+# Ramen
+echo
+echo Stopping Ramen dockers
+echo
+( cd comps/ramen/Docker && ./stop-docker ) || exit 1
+
+echo
