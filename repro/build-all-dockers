@@ -19,9 +19,11 @@ clone_or_update() {
     repodir="$2"
     tag="$3"
     if [ -d comps/${repodir}/.git ]; then
-        ( cd comps/${repodir} && git fetch --tags -f origin && git checkout $tag ) || exit 1
+        ( cd comps/${repodir} && git fetch --tags -f origin && \
+            git checkout $tag && git pull ) || exit 1
     else
-        ( cd comps && git clone ${repourl} ${repodir} && cd ${repodir} && git checkout $tag ) || exit 1
+        ( cd comps && git clone ${repourl} ${repodir} && cd ${repodir} && \
+            git checkout $tag ) || exit 1
     fi
 }
 
