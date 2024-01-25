@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# Run a command on all five repro scripts
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+outputfile=$$.repro.log
+
+cleanup() {
+    rm -f $outputfile
+    exit
+}
+
+trap cleanup EXIT SIGINT
+
+# Stop any running dockers
+./stop-all-dockers
+
+# PRAC
+echo
+echo Running PRAC repro
+echo
+( cd ../docker && echo "Starting PRAC dockers" && echo && \
+    ./start-docker && ./set-networking 30ms 100mbit && \
+    ../repro/repro $* && echo "Stopping PRAC dockers" && \
+    echo && ./stop-docker ) | tee $outputfile
+if [ ${PIPESTATUS[0]} != "0" ]; then
+    exit 1
+fi
+
+# Duoram
+echo
+echo Running Duoram repro
+echo
+( cd comps/duoram/Docker && echo "Starting Duoram dockers" && echo && \
+    ./start-docker && ./set-networking 30ms 100mbit && \
+    ./repro $* && echo "Stopping Duoram dockers" && \
+    echo && ./stop-docker ) | tee -a $outputfile
+if [ ${PIPESTATUS[0]} != "0" ]; then
+    exit 1
+fi
+
+# Floram
+echo
+echo Running Floram repro
+echo
+( cd comps/floram && echo "Starting Floram dockers" && echo && \
+    ./start-docker && ./set-networking 30ms 100mbit && \
+    ./prac/repro $* && echo "Stopping Floram dockers" && \
+    echo && ./stop-docker ) | tee -a $outputfile
+if [ ${PIPESTATUS[0]} != "0" ]; then
+    exit 1
+fi
+
+# Circuit ORAM
+echo
+echo Running Circuit ORAM repro
+echo
+( cd comps/circuit-oram/docker && echo "Starting Circuit ORAM dockers" && \
+    echo && ./start-docker && ./set-networking 30ms 100mbit && \
+    ../prac/repro $* && echo "Stopping Circuit ORAM dockers" && \
+    echo && ./stop-docker ) | tee -a $outputfile
+if [ ${PIPESTATUS[0]} != "0" ]; then
+    exit 1
+fi
+
+# Ramen
+echo
+echo Running Ramen repro
+echo
+( cd comps/ramen/Docker && echo "Starting Ramen dockers" && \
+    echo && ./start-docker && ./set-networking 30ms 100mbit && \
+    ../repro/repro $* && echo "Stopping Ramen dockers" && \
+    echo && ./stop-docker ) | tee -a $outputfile
+if [ ${PIPESTATUS[0]} != "0" ]; then
+    exit 1
+fi
+
+# Show stanzas starting with "# $1" and ending with "# " in the input
+showstanza() {
+    echo "# $1"
+    sed -n "/# $1/,/# /{//!p;}"
+}
+
+echo
+echo "===== Collated output ====="
+echo
+
+if [ "$1" == "test" ]; then
+    cat $outputfile | showstanza 'Test output'
+else
+    cat $outputfile | showstanza 'Figure 6(a)'
+    cat $outputfile | showstanza 'Figure 6(b)'
+    cat $outputfile | showstanza 'Figure 6(c)'
+    cat $outputfile | showstanza 'Figure 7(a)'
+    cat $outputfile | showstanza 'Figure 7(b)'
+    cat $outputfile | showstanza 'Figure 7(c)'
+    cat $outputfile | showstanza 'Figure 8(a)'
+    cat $outputfile | showstanza 'Figure 8(b)'
+    cat $outputfile | showstanza 'Figure 8(c)'
+    cat $outputfile | showstanza 'Table 3'
+    cat $outputfile | showstanza 'Table 4'
+    cat $outputfile | showstanza 'Figure 9'
+fi
