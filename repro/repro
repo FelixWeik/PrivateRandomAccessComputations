@@ -193,8 +193,10 @@ if [ "$whichexps" = "fig6" -o "$whichexps" = "all" ]; then
         # Figure 6(b,c)
         logname='fig6bc'
         for size in 16 18 20 22 24 26 28 30; do
-            preproc "" 0 r${size} 10 ${rMB[$size]}
-            run read $size 10
+            if [ "${rMB[$size]}" -lt "$max_preproc_p0_mb" ]; then
+                preproc "" 0 r${size} 10 ${rMB[$size]}
+                run read $size 10
+            fi
         done
     done
 fi
@@ -215,12 +217,16 @@ if [ "$whichexps" = "fig7" -o "$whichexps" = "all" ]; then
         # Figure 7(b,c)
         logname='fig7bc'
         for size in 16 18 20 22 24 26 28 30; do
-            preproc "c:${size}" 1 i$((size-1)) 1 ${iMB[$((size-1))]}
-            run bsearch $size 1
+            if [ "${iMB[$((size-1))]}" -lt "$max_preproc_p0_mb" ]; then
+                preproc "c:${size}" 1 i$((size-1)) 1 ${iMB[$((size-1))]}
+                run bsearch $size 1
+            fi
         done
         for size in 16 18 20 22 24 26 28 30; do
-            preproc "m:${size} c:${size}" 1 r${size} ${size} ${rMB[$size]}
-            run bbsearch $size 1
+            if [ "${rMB[$size]}" -lt "$max_preproc_p0_mb" ]; then
+                preproc "m:${size} c:${size}" 1 r${size} ${size} ${rMB[$size]}
+                run bbsearch $size 1
+            fi
         done
     done
 fi
@@ -241,12 +247,16 @@ if [ "$whichexps" = "fig8" -o "$whichexps" = "all" ]; then
         # Figure 8(b,c)
         logname='fig8bc'
         for size in 16 18 20 22 24 26 28 30; do
-            preproc "m:$((size*3-3)) a:1 s:$((size-2)) c:$((size*2-2))" 3 i$((size-1)).3 1 ${i3MB[$((size-1))]}
-            run heap -m ${size} -d ${size} -i 0 -e 1 -opt 1 -s 0
+            if [ "${i3MB[$((size-1))]}" -lt "$max_preproc_p0_mb" ]; then
+                preproc "m:$((size*3-3)) a:1 s:$((size-2)) c:$((size*2-2))" 3 i$((size-1)).3 1 ${i3MB[$((size-1))]}
+                run heap -m ${size} -d ${size} -i 0 -e 1 -opt 1 -s 0
+            fi
         done
         for size in 16 18 20 22 24 26 28 30; do
-            preproc "m:$((size*3-3)) a:1 s:$((size-2)) c:$((size*2-2))" 3 r${size} $((size*6-12)) ${rMB[$size]}
-            run heap -m ${size} -d ${size} -i 0 -e 1 -opt 0 -s 0
+            if [ "${rMB[$size]}" -lt "$max_preproc_p0_mb" ]; then
+                preproc "m:$((size*3-3)) a:1 s:$((size-2)) c:$((size*2-2))" 3 r${size} $((size*6-12)) ${rMB[$size]}
+                run heap -m ${size} -d ${size} -i 0 -e 1 -opt 0 -s 0
+            fi
         done
     done
 fi
