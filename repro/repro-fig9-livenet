@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Reproduce the live network experiments for Figure 9 of the paper.
+
+# We need these environment variables set:
+
+# PRAC_SSH_P0_USERHOST: the user@host to ssh to for P0
+# PRAC_SSH_P0_SSHOPTS: any options to ssh you need to ssh to P0
+# PRAC_SSH_P0_IP: the IP address P0 can listen for connections on
+# PRAC_SSH_P0_DIR: the directory relative to the homedir where the prac
+#     repo is checked out and built
+
+# PRAC_SSH_P1_USERHOST: the user@host to ssh to for P1
+# PRAC_SSH_P1_SSHOPTS: any options to ssh you need to ssh to P1
+# PRAC_SSH_P1_IP: the IP address P1 can listen for connections on
+# PRAC_SSH_P1_DIR: the directory relative to the homedir where the prac
+#     repo is checked out and built
+
+# PRAC_SSH_P2_USERHOST: the user@host to ssh to for P2
+# PRAC_SSH_P2_SSHOPTS: any options to ssh you need to ssh to P2
+# PRAC_SSH_P2_IP: the IP address P2 can listen for connections on
+# PRAC_SSH_P2_DIR: the directory relative to the homedir where the prac
+#     repo is checked out and built
+
+# Add additional env vars
+export PRAC_USE_SSH=1
+export PRAC_PARSE_HOST=1
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+# The number of iterations to do
+if [ "$1" = "" ]; then
+    niters=3
+else
+    niters="$1"
+fi
+
+# Run the PRAC experiments
+./repro fig9 $niters
