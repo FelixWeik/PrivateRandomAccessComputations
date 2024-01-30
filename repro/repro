@@ -22,7 +22,7 @@ else
     whichexps="$1"
 fi
 
-# The number of operations per run; the graphs in the paper use 3
+# The number of iterations; the graphs in the paper use 3
 if [ "$whichexps" = "single" -o "$2" = "" ]; then
     # If there's an explicit experiment on the command line, don't read
     # the next argument as the number of operations.  $numops will be
