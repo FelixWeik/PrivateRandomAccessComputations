@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Build the PRAC, 3P-Circuit-ORAM, and Ramen code on the host, not in a
+# docker.  Basically run the contents of their respective Dockerfiles.
+
+# Does not assume it's running as root.  Be sure to run
+# ./setup-fig9-livenet as root first, though.  Run this on the three
+# machines that will run the three multiparty computation parties.
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+# Clone the repos
+./clone-fig9-livenet
+
+echo "Building PRAC..."
+echo
+( cd .. && make -j`nproc` ) || exit 1
+
+echo
+echo "Building Circuit ORAM..."
+echo
+( cd comps/circuit-oram && ant ) || exit 1
+
+echo
+echo "Building Ramen..."
+echo
+( cd comps/ramen && cargo build --release --example=bench_doram ) || exit 1
+
+echo
+echo "Done."

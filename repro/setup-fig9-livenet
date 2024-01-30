@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Set up the build environment for the PRAC, 3P-Circuit-ORAM, and Ramen
+# code on the host, not in a docker.
+
+# Run this script as root.
+
+apt update
+
+# PRAC dependencies
+apt install -y wget git build-essential net-tools iproute2 iperf iputils-ping libbsd-dev libboost-all-dev numactl time
+
+# 3P-Circuit-ORAM dependencies
+apt install -y wget git build-essential net-tools iproute2 iperf iputils-ping numactl ant openjdk-11-jre-headless openjdk-11-jdk-headless tcpdump time
+
+# Ramen dependencies
+apt install -y wget git build-essential net-tools iproute2 iperf iputils-ping cargo numactl time m4

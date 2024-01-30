@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Clone the PRAC, 3P-Circuit-ORAM, and Ramen code on the host, not in a
+# docker.  Run this on the local control machine to get the scripts to
+# run the Figure 9 experiments, or on the MPC machines to get the code
+# to build and run.
+
+# Does not assume it's running as root.  Be sure to have git installed.
+
+# cd into the directory containing this script (from the bash faq 028)
+if [[ $BASH_SOURCE = */* ]]; then
+  cd -- "${BASH_SOURCE%/*}/" || exit
+fi
+
+mkdir -p comps
+
+# Clone the given repo or update it
+# Args: repo_url dirname branch_or_tag
+clone_or_update() {
+    repourl="$1"
+    repodir="$2"
+    tag="$3"
+    if [ -d comps/${repodir}/.git ]; then
+        ( cd comps/${repodir} && git fetch --tags -f origin && \
+            git checkout $tag && git pull ) || exit 1
+    else
+        ( cd comps && git clone ${repourl} ${repodir} && cd ${repodir} && \
+            git checkout $tag ) || exit 1
+    fi
+}
+
+# See if we need to clone those other two repos
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/avadapal/3p-circuit-oram-prac-repro \
+    circuit-oram master
+
+clone_or_update \
+    https://git-crysp.uwaterloo.ca/avadapal/ramen-dockerization \
+    ramen master
+
