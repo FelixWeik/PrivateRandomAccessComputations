@@ -22,6 +22,8 @@
 # PRAC_SSH_P2_DIR: the directory relative to the homedir where the prac
 #     repo is checked out and built
 
+# Optional: PRAC_NUMA_P{0,1,2}
+
 # Add additional env vars
 export PRAC_USE_SSH=1
 export PRAC_PARSE_HOST=1
@@ -39,4 +41,56 @@ else
 fi
 
 # Run the PRAC experiments
-./repro fig9 $niters
+./repro fig9 $niters || exit 1
+
+# Set up the ORAM environment variables based on the PRAC ones
+
+export ORAM_SSH_C_USERHOST="$PRAC_SSH_P0_USERHOST"
+export ORAM_SSH_C_SSHOPTS="$PRAC_SSH_P0_SSHOPTS"
+export ORAM_SSH_C_IP="$PRAC_SSH_P0_IP"
+export ORAM_SSH_C_DIR="$PRAC_SSH_P0_DIR"/repro/comps/circuit-oram
+export ORAM_NUMA_C="$PRAC_NUMA_P0"
+
+export ORAM_SSH_D_USERHOST="$PRAC_SSH_P1_USERHOST"
+export ORAM_SSH_D_SSHOPTS="$PRAC_SSH_P1_SSHOPTS"
+export ORAM_SSH_D_IP="$PRAC_SSH_P1_IP"
+export ORAM_SSH_D_DIR="$PRAC_SSH_P1_DIR"/repro/comps/circuit-oram
+export ORAM_NUMA_D="$PRAC_NUMA_P1"
+
+export ORAM_SSH_E_USERHOST="$PRAC_SSH_P2_USERHOST"
+export ORAM_SSH_E_SSHOPTS="$PRAC_SSH_P2_SSHOPTS"
+export ORAM_SSH_E_IP="$PRAC_SSH_P2_IP"
+export ORAM_SSH_E_DIR="$PRAC_SSH_P2_DIR"/repro/comps/circuit-oram
+export ORAM_NUMA_E="$PRAC_NUMA_P2"
+
+export ORAM_USE_SSH=1
+export ORAM_PARSE_HOST=1
+
+( cd comps/circuit-oram/prac && \
+    ./generate_raw_data_reads_ssh.sh $niters ) || exit 1
+
+# Set up the Ramen environment variables based on the PRAC ones
+
+export RAMEN_SSH_P0_USERHOST="$PRAC_SSH_P0_USERHOST"
+export RAMEN_SSH_P0_SSHOPTS="$PRAC_SSH_P0_SSHOPTS"
+export RAMEN_SSH_P0_IP="$PRAC_SSH_P0_IP"
+export RAMEN_SSH_P0_DIR="$PRAC_SSH_P0_DIR"/repro/comps/ramen
+export RAMEN_NUMA_P0="$PRAC_NUMA_P0"
+
+export RAMEN_SSH_P1_USERHOST="$PRAC_SSH_P1_USERHOST"
+export RAMEN_SSH_P1_SSHOPTS="$PRAC_SSH_P1_SSHOPTS"
+export RAMEN_SSH_P1_IP="$PRAC_SSH_P1_IP"
+export RAMEN_SSH_P1_DIR="$PRAC_SSH_P1_DIR"/repro/comps/ramen
+export RAMEN_NUMA_P1="$PRAC_NUMA_P1"
+
+export RAMEN_SSH_P2_USERHOST="$PRAC_SSH_P2_USERHOST"
+export RAMEN_SSH_P2_SSHOPTS="$PRAC_SSH_P2_SSHOPTS"
+export RAMEN_SSH_P2_IP="$PRAC_SSH_P2_IP"
+export RAMEN_SSH_P2_DIR="$PRAC_SSH_P2_DIR"/repro/comps/ramen
+export RAMEN_NUMA_P2="$PRAC_NUMA_P2"
+
+export RAMEN_USE_SSH=1
+export RAMEN_PARSE_HOST=1
+
+( cd comps/ramen/repro && \
+    ./generate_raw_data_reads_ssh.sh $niters ) || exit 1
