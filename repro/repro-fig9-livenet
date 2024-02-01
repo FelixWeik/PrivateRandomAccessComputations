@@ -41,6 +41,8 @@ else
 fi
 
 # Run the PRAC experiments
+echo "Running PRAC experiments..."
+echo
 ./repro fig9 $niters || exit 1
 
 # Set up the ORAM environment variables based on the PRAC ones
@@ -66,8 +68,12 @@ export ORAM_NUMA_E="$PRAC_NUMA_P2"
 export ORAM_USE_SSH=1
 export ORAM_PARSE_HOST=1
 
+echo
+echo "Running Circuit ORAM experiments..."
+echo
 ( cd comps/circuit-oram/prac && \
-    ./generate_raw_data_reads_ssh.sh $niters ) || exit 1
+    ./generate_raw_data_reads_ssh.sh $niters && \
+    ./parse_logs data/*.out > data/oram.dat ) || exit 1
 
 # Set up the Ramen environment variables based on the PRAC ones
 
@@ -92,5 +98,40 @@ export RAMEN_NUMA_P2="$PRAC_NUMA_P2"
 export RAMEN_USE_SSH=1
 export RAMEN_PARSE_HOST=1
 
+echo
+echo "Running Ramen experiments..."
+echo
 ( cd comps/ramen/repro && \
-    ./generate_raw_data_reads_ssh.sh $niters ) || exit 1
+    ./generate_raw_data_reads_ssh.sh $niters && \
+    ./parse_logs data/*.out > data/ramen.dat ) || exit 1
+
+echo
+echo '# Figure 9'
+egrep 'PRACTotl heapsampler [0-9]+ [0-9]+ .* s' data/prac.dat | sort -k3,3n -k4,4n
+
+echo
+echo '# Last sentence of Section 8'
+prac_seconds=$(egrep 'PRACTotl heapsampler 300 2048 [0-9\.]+ .*s' data/prac.dat | cut -d' ' -f5)
+prac_hours=$(echo "$prac_seconds / 3600" | bc -l)
+echo 'PRAC '$prac_hours' hours'
+
+# The time to do 1 heap extract (48 ORAM reads)
+ramen_1_seconds=$(egrep 'Ramen read 9 48 [0-9\.]+ .*s' comps/ramen/repro/data/ramen.dat | cut -d' ' -f5)
+# The time to do 10 heap extracts (480 ORAM reads)
+ramen_10_seconds=$(egrep 'Ramen read 9 480 [0-9\.]+ .*s' comps/ramen/repro/data/ramen.dat | cut -d' ' -f5)
+# Extrapolate to 2048 heap extracts = 2048*48 = 98304 ORAM reads, noting there
+# may be constant overhead, so that the time for the first extract may be
+# different from subsequent ones.  Therefore, compute the time for the 9
+# subsequent ones, scale up to 2047, and add the first one back in.
+ramen_2048_seconds=$(echo "($ramen_10_seconds - $ramen_1_seconds) / 9 * 2047 + $ramen_1_seconds" | bc -l)
+ramen_2048_hours=$(echo "$ramen_2048_seconds / 3600" | bc -l)
+echo 'Ramen '$ramen_2048_hours' hours'
+
+# The time to do 1 ORAM read (not 1 heap extract)
+oram_1_seconds=$(egrep 'CircuitORAMTotl read 9 1 [0-9\.]+ .*s' comps/circuit-oram/prac/data/oram.dat | cut -d' ' -f5)
+# The time to do 144 ORAM reads (3 heap extracts)
+oram_144_seconds=$(egrep 'CircuitORAMTotl read 9 144 [0-9\.]+ .*s' comps/circuit-oram/prac/data/oram.dat | cut -d' ' -f5)
+# Extrapolate to 2048 heap extracts = 2048*48 = 98304 ORAM reads as above
+oram_98304_seconds=$(echo "($oram_144_seconds - $oram_1_seconds) / 143 * 98303 + $oram_1_seconds" | bc -l)
+oram_98304_days=$(echo "$oram_98304_seconds / 3600 / 24" | bc -l)
+echo 'CircuitORAM '$oram_98304_days' days'
