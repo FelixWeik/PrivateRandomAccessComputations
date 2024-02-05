@@ -124,7 +124,7 @@ If you don't want to do the more detailed tuning below, just do this one:
 
   - The above will give each party 20 cores (the last 20 cores, as well as all the "B sides" of hyperthreading, will be unused).
 
-  - **If you have a regular (non-NUMA) machine**, you may still want to assign each party to a separate set of one-third of the "A side" cores.  For example if you have a 16-core CPU, with 0-15 being the A sides, and 16-31 being the B sides, with 64 GiB of available RAM, you might set:
+  - **If you have a regular (non-NUMA) machine**, you may still want to assign each party to a separate set of one-third of the "A side" cores.  For example if you have a 16-core (32-hyperthread) CPU, with 0-15 being the A sides, and 16-31 being the B sides, with 64 GiB of available RAM, you might set:
 
         export PRAC_NUMA_P0="numactl -C 0-4"
         export PRAC_NUMA_P1="numactl -C 5-9"
