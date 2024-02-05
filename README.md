@@ -6,6 +6,18 @@ Adithya Vadapalli, avadapalli@cse.iitk.ac.in
 
 PRAC implements three-party secure computation, with a particular focus on computations that require random access to memory.  Parties 0 and 1 are the computational peers, while party 2 is the server.  The server aids the computation, but generally does much less than the two computational peers.
 
+This work appeared in:
+
+Sajin Sasy, Adithya Vadapalli, Ian Goldberg. "PRAC: Round-Efficient 3-Party MPC for Dynamic Data Structures". Proceedings on Privacy Enhancing Technologies 2024(3).  [https://eprint.iacr.org/2023/1897](https://eprint.iacr.org/2023/1897).
+
+----------
+
+## Looking for the reproduction instructions?
+
+The reproduction instructions for the PoPETs paper are in [the README file in the `repro` directory](repro/README.md) of this (`popets-repro`) branch.
+
+----------
+
 The multi-party computation (MPC) makes use of _resources_, most notably multiplication triples and distributed point functions (DPFs).  These resources can be precomputed; they are independent of the values in the computation being performed, so you only need to know how many of each you'll need.
 
 PRAC has three _modes_:
