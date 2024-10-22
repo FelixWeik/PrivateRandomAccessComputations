@@ -509,7 +509,7 @@ class Duoram<T>::OblivIndex {
     template <typename Ux,typename FT,typename FST,typename Sh,nbits_t WIDTHx>
     friend class Shape::MemRefS;
 
-    int player;
+    int player;  // defines the type of party => player = 2 makes this player the intermediary
     std::optional<RDPFTriple<WIDTH>> dt;
     std::optional<RDPFPair<WIDTH>> dp;
     nbits_t curdepth, maxdepth;
@@ -627,7 +627,6 @@ class Duoram<T>::Shape::MemRefS {
 
     FST fieldsel;
 
-private:
     // Oblivious update to a shared index of Duoram memory, only for
     // FT = RegAS or RegXS
     MemRefS<U,FT,FST,Sh,WIDTH> &oram_update(const FT& M, const prac_template_true&);
