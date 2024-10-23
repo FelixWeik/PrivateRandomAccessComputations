@@ -228,7 +228,8 @@ struct RDPFTriple {
     using WTriple = std::tuple<
         typename std::array<T,WIDTH>,
         typename std::array<T,WIDTH>,
-        typename std::array<T,WIDTH> >;
+        typename std::array<T,WIDTH>
+    >;
 
     // The type of triples of nodes, LeafNodes, and the wide shared
     // register types

@@ -437,7 +437,7 @@ public:
         return Flat(*this, this->tio, new_yield);
     }
 
-    // Index into this Flat in various ways
+    // Index into this Flat in various ways (overwrites the index parameter, so one can index with various parameters)
     typename Duoram::Shape::template MemRefS<RegAS,T,std::nullopt_t,Flat,1>
             operator[](const RegAS &idx) {
         typename Duoram<T>::Shape::
