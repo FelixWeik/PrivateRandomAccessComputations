@@ -40,9 +40,9 @@ struct DPF {
 
     // The 128-bit seed
     DPFnode seed;
-    // Which half of the DPF are we?
+    // 0 = left half, 1 = right half
     bit_t whichhalf;
-    // correction words
+    // correction words (holds n dpf nodes with n being the number of levels in the dpf)
     std::vector<DPFnode> cw;
     // correction flag bits: the one for level i is bit i of this word
     value_t cfbits;
@@ -67,20 +67,20 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
 {
     DPFnode prgout;
     bool flag = get_lsb(parent);
-    prg(prgout, parent, whichchild, aes_ops);
+    prg(prgout, parent, whichchild, aes_ops);  // generation on the fly possible, since prg returns fixed value for given seed
     if (flag) {
         DPFnode CW = cw[parentdepth];
-        bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));
+        bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
         DPFnode CWR = CW ^ lsb128_mask[cfbit];
-        prgout ^= (whichchild ? CWR : CW);
+        prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;
 }
 
 // Don't warn if we never actually use these functions
-static void dump_node(DPFnode node, const char *label = NULL)
+static void dump_node(DPFnode node, const char *label = nullptr)
 __attribute__ ((unused));
-static void dump_level(DPFnode *nodes, size_t num, const char *label = NULL)
+static void dump_level(DPFnode *nodes, size_t num, const char *label = nullptr)
 __attribute__ ((unused));
 
 static void dump_node(DPFnode node, const char *label)

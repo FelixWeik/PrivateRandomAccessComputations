@@ -397,6 +397,7 @@ static inline void zero(std::array<value_t,WIDTH> &z)
 // words.  L and R will be set to the XORs of the left children and the
 // XORs of the right children respectively. NT will be LeafNode if we
 // are expanding into a leaf level, DPFnode if not.
+// Thus, the sole difference between creating a node level and a leaf level is the type of NT
 template <typename NT>
 static inline void expand_level_nothreads(size_t start, size_t end,
     const DPFnode *curlevel, NT *nextlevel, NT &L, NT &R,
@@ -408,9 +409,14 @@ static inline void expand_level_nothreads(size_t start, size_t end,
     zero(lR);
     size_t laes_ops = 0;
     for(size_t i=start;i<end;++i) {
+        /** Iterates over each element in the given level (*nextLevel is a list)
+        * generates for each nod both children with the given node being the seed
+        * populates the new list with the nods from left to right
+        */
         NT lchild, rchild;
+        // will return lchild ^ lchild_ciphertext and rchild ^ rchild_ciphertext
         prgboth(lchild, rchild, curlevel[i], laes_ops);
-        lL ^= lchild;
+        lL ^= lchild;  // compound assignemnt operator (bitwise xor) => lL = lL XOR lchild = lchild (lL is zero)
         lR ^= rchild;
         nextlevel[2*i] = lchild;
         nextlevel[2*i+1] = rchild;
@@ -492,6 +498,7 @@ static inline void finalize_nonleaf_layer_nothreads(size_t start,
 // timing benchmarks.  The timing of each iteration of the inner loop is
 // comparable to the above, so just use the same computations.  All of
 // this could be tuned, of course.
+// This function calls the nothreads-equivalent if maxthreads == 1 || level < 19
 static inline void finalize_nonleaf_layer(int max_nthreads, nbits_t level,
     const DPFnode *curlevel, DPFnode *nextlevel, DPFnode CWL,
     DPFnode CWR)
@@ -537,7 +544,7 @@ static inline void finalize_leaf_layer_nothreads(size_t start,
     std::array<value_t,WIDTH> &high_sum,
     std::array<value_t,WIDTH> &high_xor)
 {
-    value_t llow_sum = 0;
+    value_t llow_sum = 0;  // remember: value_t is a type alias for the 64 bit vector
     std::array<value_t,WIDTH> lhigh_sum;
     std::array<value_t,WIDTH> lhigh_xor;
     zero(lhigh_sum);
@@ -550,6 +557,7 @@ static inline void finalize_leaf_layer_nothreads(size_t start,
             nextlevel[2*i] = leftchild;
             nextlevel[2*i+1] = rightchild;
         }
+        // Divides the 128bit vectors into two 64-bit vectors leftchild => (lefthigh, leftlow) and right, respectively
         value_t leftlow = value_t(_mm_cvtsi128_si64x(leftchild[0]));
         value_t rightlow = value_t(_mm_cvtsi128_si64x(rightchild[0]));
         value_t lefthigh =
@@ -841,7 +849,8 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
 
     // Choose a random seed
     arc4random_buf(&seed, sizeof(seed));
-    // Ensure the flag bits (the lsb of each node) are different
+    // Ensure the flag bits (the lsb of each node) are different => p0 has lsb 0, p1 lsb 1 by default
+    // Note the invariant of dpf construction, only on the path to i* the flag bits must be different (root always on path)
     seed = set_lsb(seed, !!player);
     cfbits = 0;
     leaf_cfbits = 0;
@@ -849,10 +858,10 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
     maxdepth = depth;
     curdepth = depth;
 
-    // The root level is just the seed
+    // The root level is just the seed => following lines define the root
     nbits_t level = 0;
-    DPFnode *curlevel = NULL;
-    DPFnode *nextlevel = new DPFnode[1];
+    DPFnode *curlevel = nullptr;
+    auto *nextlevel = new DPFnode[1];
     nextlevel[0] = seed;
 
     li.resize(incremental ? depth : 1);
@@ -866,15 +875,17 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
         if (player < 2) {
             delete[] curlevel;
             curlevel = nextlevel;
-            nextlevel = NULL;
+            nextlevel = nullptr;
             if (save_expansion && (incremental || level == depth-1)) {
                 li[depth-1-level].expansion.resize(1<<(level+1));
                 leaflevel = li[depth-1-level].expansion.data();
-            } else if (incremental || level == depth-1) {
-                leaflevel = new LeafNode[1<<(level+1)];
+            }
+            // This will build a leafNode or DPF node according to the level (also in non-incremental dpfs)
+            else if (incremental || level == depth-1) {
+                leaflevel = new LeafNode[1<<(level+1)];  //TODO why is the sum taken
             }
             if (level < depth-1) {
-                nextlevel = new DPFnode[1<<(level+1)];
+                nextlevel = new DPFnode[1<<(level+1)];  // sets the vector to 2^(level+1)  //TODO why m128i when 64bit words?
             }
         }
         // Invariant: curlevel has 2^level DPFnode elements; nextlevel
@@ -963,7 +974,7 @@ template <nbits_t WIDTH>
 void RDPF<WIDTH>::expand_leaf_layer(nbits_t li_index, size_t &aes_ops)
 {
     nbits_t depth = maxdepth - li_index;
-    size_t num_leaves = size_t(1)<<depth;
+    size_t num_leaves = size_t(1)<<depth;  // = 2**depth
     if (li[li_index].expansion.size() == num_leaves) return;
     li[li_index].expansion.resize(num_leaves);
     address_t index = 0;

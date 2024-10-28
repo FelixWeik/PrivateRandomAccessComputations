@@ -158,7 +158,7 @@ void preprocessing_comp(MPCIO &mpcio, const PRACOptions &opts, char **args)
                             });
                     }
                 } else if (type >= 0x01 && type <= 0x30) {
-                    // RAM DPFs
+                    // RAM DPFs => RDPF
                     bool incremental = false;
                     if (subtype >= 0x80) {
                         incremental = true;

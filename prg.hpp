@@ -25,6 +25,7 @@ leafprgkeys[3] = {
 
 // Compute one of the children of node seed; whichchild=0 for
 // the left child, 1 for the right child
+// cost: 1 AES encryption
 static inline void prg(__m128i &out, __m128i seed, bool whichchild,
     size_t &aes_ops)
 {
@@ -41,9 +42,9 @@ static inline void prgboth(__m128i &left, __m128i &right, __m128i seed,
     __m128i inl = set_lsb(seed, 0);
     __m128i inr = set_lsb(seed, 1);
     __m128i midl, midr;
-    AES_ECB_encrypt(midl, inl, prgkey.k, aes_ops);
+    AES_ECB_encrypt(midl, inl, prgkey.k, aes_ops);  // ciphertext (midl) is result of encryption
     AES_ECB_encrypt(midr, inr, prgkey.k, aes_ops);
-    left = midl ^ inl;
+    left = midl ^ inl;  // XORs the ciphertext with the plaintext (OTP?)
     right = midr ^ inr;
 }
 

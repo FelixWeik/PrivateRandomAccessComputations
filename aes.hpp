@@ -68,6 +68,7 @@ static inline void AES_ECB_encrypt(__m128i &ciphertext, __m128i plaintext,
     int j;
     tmp = plaintext;
     tmp = _mm_xor_si128 (tmp,key[0]);
+    // 128bit AES uses 10 rounds (192 uses 12, 256 uses 14) => several round keys necessary
     for(j=1; j<10; j++){
         tmp = _mm_aesenc_si128 (tmp,key[j]);
     }

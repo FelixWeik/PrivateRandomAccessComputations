@@ -3,7 +3,6 @@
 
 #include <array>
 #include <vector>
-#include <iostream>
 
 #include "mpcio.hpp"
 #include "coroutine.hpp"
@@ -34,12 +33,14 @@ struct RDPF : public DPF {
     template <typename T>
     using W = std::array<T, WIDTH>;
     // The wide shared register types
+    // Array holding WIDTH elements of type RegAS => AS of value M
     using RegASW = W<RegAS>;
+    // Array holding WIDTH elements of type RegXS => XS of value M
     using RegXSW = W<RegXS>;
     // The number of 128-bit leaf node entries you need to get 1 unit
     // value and WIDTH scaled values (each is 64 bits)
     static const nbits_t LWIDTH = 1 + (WIDTH/2);
-    using LeafNode = std::array<DPFnode,LWIDTH>;
+    using LeafNode = std::array<DPFnode,LWIDTH>;  // DPFNode wird aufgeteilt => 64bit für read, 64bit für write (writes WIDTH mal möglich)
 
     // Information for leaf levels of the RDPF.  Normal RDPFs only have
     // one leaf level (at the bottom), but incremental RDPFs have a leaf
@@ -49,7 +50,7 @@ struct RDPF : public DPF {
         // The correction word for this leaf level
         LeafNode leaf_cw;
         // The amount we have to scale the low words of the leaf values by
-        // to get additive shares of a unit vector
+        // to get additive shares of a unit vector (value is 64-bit vector)
         value_t unit_sum_inverse;
         // Additive share of the scaling values M_as such that the high words
         // of the WIDTH leaf values for P0 and P1 add to M_as * e_{target}
@@ -84,7 +85,7 @@ struct RDPF : public DPF {
     // but therefore only the low bit gets used.
     value_t leaf_cfbits;
 
-    RDPF() {}
+    RDPF() = default;
 
     // Construct a DPF with the given (XOR-shared) target location, and
     // of the given depth, to be used for random-access memory reads and
@@ -207,7 +208,7 @@ struct RDPF : public DPF {
     }
 
 private:
-    // Expand one leaf layer of the DPF if it's not already expanded
+    // Expand one leaf layer of the DPF if it's not already expanded (implemented in rdpf.tcc)
     void expand_leaf_layer(nbits_t li_index, size_t &aes_ops);
 };
 
@@ -270,7 +271,7 @@ struct RDPFTriple {
             dpf[1].get_expansion(index), dpf[2].get_expansion(index));
     }
 
-    RDPFTriple() {}
+    RDPFTriple() = default;
 
     // Construct three RDPFs of the given depth all with the same
     // randomly generated target index.
