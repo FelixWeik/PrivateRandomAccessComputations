@@ -419,7 +419,7 @@ typename Duoram<T>::Shape::template MemRefS<U,FT,FST,Sh,WIDTH>
     if (player < 2) {
         // Computational players do this
 
-        const RDPFTriple<WIDTH> &dt = *(oblividx->dt);
+        const RDPFTriple<WIDTH> &dt = *(oblividx->dt);  // possible, since MemRefS friend class of OblivIndex
         const nbits_t windex = oblividx->windex();
         const nbits_t depth = dt.depth();
 

@@ -12,7 +12,7 @@ class Openfiles {
     std::vector<std::ofstream> files;
 
 public:
-    Openfiles(bool append_mode = false) : append_mode(append_mode) {}
+    explicit Openfiles(bool append_mode = false) : append_mode(append_mode) {}
 
     class Handle {
         Openfiles &parent;

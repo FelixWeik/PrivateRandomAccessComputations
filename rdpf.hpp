@@ -240,7 +240,7 @@ struct RDPFTriple {
 
     RegAS as_target;
     RegXS xs_target;
-    RDPF<WIDTH> dpf[3];
+    RDPF<WIDTH> dpf[3]; // this is the actual rdpf triple
 
     // The depth
     inline nbits_t depth() const { return dpf[0].depth(); }
@@ -370,7 +370,7 @@ struct RDPFPair {
 
     RDPF<WIDTH> dpf[2];
 
-    RDPFPair() {}
+    RDPFPair() = default;
 
     // The depth
     inline nbits_t depth() const { return dpf[0].depth(); }

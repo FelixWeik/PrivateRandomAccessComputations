@@ -6,6 +6,11 @@
 #include "online.hpp"
 #include "options.hpp"
 
+/*
+ * Note that the program will be executed once for each party, thus every
+ * MPCIO is only for one party (of course, shares will be on multiple programs)
+*/
+
 static void usage(const char *progname)
 {
     std::cerr << "Usage: " << progname << " [-p | -a | -o] [-C num] [-t num] [-e] [-x] player_num player_addrs args ...\n";
@@ -81,8 +86,8 @@ int main(int argc, char **argv)
     char **args = argv+1; // Skip argv[0] (the program name)
     PRACOptions opts;
     unsigned player = 0;
-    const char *p0addr = NULL;
-    const char *p1addr = NULL;
+    const char *p0addr = nullptr;
+    const char *p1addr = nullptr;
     // Get the options
     while (*args && *args[0] == '-') {
         if (!strcmp("-p", *args)) {
@@ -126,7 +131,7 @@ int main(int argc, char **argv)
             usage(argv[0]);
         }
     }
-    if (*args == NULL) {
+    if (*args == nullptr) {
         // No arguments?
         usage(argv[0]);
     } else {
@@ -137,7 +142,7 @@ int main(int argc, char **argv)
         usage(argv[0]);
     }
     if (player > 0) {
-        if (*args == NULL) {
+        if (*args == nullptr) {
             usage(argv[0]);
         } else {
             p0addr = *args;

@@ -45,6 +45,7 @@ struct DPF {
     // correction words (holds n dpf nodes with n being the number of levels in the dpf)
     std::vector<DPFnode> cw;
     // correction flag bits: the one for level i is bit i of this word
+    // these are xor shares of a standard basis vector (the shifting vector (equivalent to t in the paper))
     value_t cfbits;
 
     // The seed

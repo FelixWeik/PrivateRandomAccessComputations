@@ -502,6 +502,7 @@ public:
 };
 
 // Oblivious indices for use in related-index ORAM accesses.
+// Verwaltet die RDPFTriples / Pairs (für Server); Einsatz im Kontext von MemRefS (= oblivious reads und writes)
 
 template <typename T>
 template <typename U, nbits_t WIDTH>
@@ -627,7 +628,6 @@ class Duoram<T>::Shape::MemRefS {
 
     FST fieldsel;
 
-private:
     // Oblivious update to a shared index of Duoram memory, only for
     // FT = RegAS or RegXS
     MemRefS<U,FT,FST,Sh,WIDTH> &oram_update(const FT& M, const prac_template_true&);
@@ -644,11 +644,10 @@ public:
     }
 
     MemRefS<U,FT,FST,Sh,WIDTH>(Sh &shape, OblivIndex<U,WIDTH> &obidx, FST fieldsel) :
-        shape(shape), fieldsel(fieldsel) {
-        oblividx = &obidx;
+        shape(shape), fieldsel(fieldsel), oblividx(&obidx) {
     }
 
-    // Create a MemRefS for accessing a partcular field of T
+    // Create a MemRefS for accessing a particular field of T
     template <typename SFT>
     MemRefS<U,SFT,SFT T::*,Sh,WIDTH> field(SFT T::*subfieldsel) {
         auto res = MemRefS<U,SFT,SFT T::*,Sh,WIDTH>(this->shape,
@@ -659,7 +658,7 @@ public:
     // Oblivious read from a shared index of Duoram memory
     operator FT();
 
-    // Oblivious update to a shared index of Duoram memory
+    // Oblivious update to a shared index of Duoram memory (will call oram_update)
     MemRefS<U,FT,FST,Sh,WIDTH> &operator+=(const FT& M);
 
     // Oblivious write to a shared index of Duoram memory
@@ -692,7 +691,7 @@ public:
         return res;
     }
 
-    // Explicit read from a given index of Duoram memory
+    // Explicit read from a given index of Duoram memory => memrefexpl can be implicitly converted to FT
     operator FT();
 
     // Explicit update to a given index of Duoram memory
@@ -702,7 +701,10 @@ public:
     MemRefExpl &operator=(const FT& M);
 
     // Convenience function
-    MemRefExpl &operator-=(const FT& M) { *this += (-M); return *this; }
+    MemRefExpl &operator-=(const FT& M) {
+        *this += (-M);
+        return *this;
+    }
 };
 
 // A collection of independent memory references that can be processed

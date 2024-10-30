@@ -667,7 +667,7 @@ static void duoram_test(MPCIO &mpcio,
     MPCTIO tio(mpcio, 0, opts.num_cpu_threads);
     run_coroutines(tio, [&tio, depth, share, len] (yield_t &yield) {
         // size_t &aes_ops = tio.aes_ops();
-        Duoram<T> oram(tio.player(), len);
+        Duoram<T> oram(tio.player(), len);  // T is RegXS or RegAS (defines how database is shared)
         auto A = oram.flat(tio, yield);
         RegAS aidx, aidx2, aidx3;
         aidx.ashare = share;
