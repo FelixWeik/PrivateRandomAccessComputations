@@ -31,18 +31,18 @@
 //
 // Given additive shares x0 and x1 of x, two parties can determine
 // bitwise shares of whether x>0 as follows: exchange (target0-x0) and
-// (target1-x1); both sides add them to produce S = (target-x).
+// (target1-x1); both sides add them to produce S = (target-x) = (target0-x0)+(target1-x1).
 // Notionally consider (but do not actually construct) a bit vector V of
 // length 2^64 with 1s at positions S+1, S+2, ..., S+(2^63-1), wrapping
 // around if the indices exceed 2^64-1.  Now consider (but again do not
 // actually do) the dot product of V with the full evaluation of the
 // DPFs.  The full evaluations of the DPFs are random bit vectors that
 // differ in only the bit at position target, so the two dot products
-// (which are each a single bit) will be a bitwise shraring of the value
+// (which are each a single bit) will be a bitwise sharing of the value
 // of V at position target.  Note that if V[target] = 1, then target =
-// S+k for some 1 <= k <= 2^63-1, then since target = S+x, we have that
-// x = k is in that same range; i.e. x>0 as a 64-bit signed integer (and
-// similarly if V[target] = 0, then x <= 0.
+// S+k for some 1 <= k <= 2^63-1, then since target = S+x = (target-x) + x
+// , we have that x = k is in that same range; i.e. x>0 as a 64-bit
+// signed integer (and similarly if V[target] = 0, then x <= 0=.
 //
 // So far, this is all standard, and for DPFs of smaller depth, this is
 // the same technique we're doing for RDPFs.  But we can't do it for
@@ -98,11 +98,11 @@ struct CDPF : public DPF {
     // Generate a pair of CDPFs with the given target value
     //
     // Cost:
-    // 4*VALUE_BITS - 28 = 228 local AES operations
+    // 4*VALUE_BITS - 28 = 228 local AES operations (with value_bits = 64)
     static std::tuple<CDPF,CDPF> generate(value_t target, size_t &aes_ops);
 
     // Generate a pair of CDPFs with a random target value
-    //
+    //W
     // Cost:
     // 4*VALUE_BITS - 28 = 228 local AES operations
     static std::tuple<CDPF,CDPF> generate(size_t &aes_ops);
@@ -119,7 +119,7 @@ struct CDPF : public DPF {
     inline void get_target(RegAS &target) const { target = as_target; }
     inline void get_target(RegXS &target) const { target = xs_target; }
 
-    // Compare the given additively shared element to 0.  The output is
+    // Compare the given additively shared element (x) to 0. The output is
     // a triple of bit shares; the first is a share of 1 iff the
     // reconstruction of the element is negative; the second iff it is
     // 0; the third iff it is positive.  (All as two's-complement
