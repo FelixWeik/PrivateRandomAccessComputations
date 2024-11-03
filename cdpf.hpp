@@ -42,7 +42,7 @@
 // of V at position target.  Note that if V[target] = 1, then target =
 // S+k for some 1 <= k <= 2^63-1, then since target = S+x = (target-x) + x
 // , we have that x = k is in that same range; i.e. x>0 as a 64-bit
-// signed integer (and similarly if V[target] = 0, then x <= 0=.
+// signed integer (and similarly if V[target] = 0, then x <= 0).
 //
 // So far, this is all standard, and for DPFs of smaller depth, this is
 // the same technique we're doing for RDPFs.  But we can't do it for

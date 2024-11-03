@@ -175,7 +175,7 @@ DPFnode CDPF::leaf(value_t input, size_t &aes_ops) const
 std::tuple<RegBS,RegBS,RegBS> CDPF::compare(MPCTIO &tio, yield_t &yield,
     RegAS x, size_t &aes_ops)
 {
-    // Reconstruct S = target-x
+    // Reconstruct S = target-x (includes the communication)
     // The server does nothing in this protocol
     if (tio.player() < 2) {
         RegAS S_share = as_target - x;
@@ -221,7 +221,7 @@ std::tuple<RegBS,RegBS,RegBS> CDPF::compare(value_t S, size_t &aes_ops)
     // right, we also include the left sibling on the T path (which will
     // be the XOR of the right sibling and the parent), and add it to
     // the gt flag.  When we hit the leaves, the gt flag will account
-    // for all of the complete leaf nodes strictly greater than S and
+    // for all the complete leaf nodes strictly greater than S and
     // strictly less than T.  Then we just have to pull out the parity
     // of the appropriate bits in the two leaf nodes containing S and T
     // respectively to complete the computation of gt, and also to get
