@@ -46,7 +46,7 @@ using nbits_t = uint8_t;
 // overflowing if nbits == VALUE_BITS
 #define MASKBITS(nbits) (((nbits) < VALUE_BITS) ? (value_t(1)<<(nbits))-1 : ~0)
 
-// The type of a register holding an additive share of a value
+// The type of register holding an additive share of a value
 struct RegAS {
     value_t ashare;
 

@@ -27,7 +27,9 @@
 
 // This is templated, because you can have a Duoram of additively shared
 // (RegAS) or XOR shared (RegXS) elements, or more complex cell types
-// (see cell.hpp for example).
+// (see cell.hpp for example). The paper assumes RegAS to be the
+// standard sharing type for the Duoram implementation. This introduces
+// the necessity of converting the XOR shares of the DPF to additive shares.
 
 template <typename T>
 class Duoram {
@@ -49,7 +51,7 @@ class Duoram {
     std::vector<T> blind;            // computational parties use this name
     std::vector<T> &p0_blind;        // server uses this name
 
-    std::vector<T> peer_blinded_db;  // computational parties
+    std::vector<T> peer_blinded_db;  // computational parties (= blinded db of the peer (for p0 its p1 and vice versa))
     std::vector<T> &p1_blind;        // server
 
 public:

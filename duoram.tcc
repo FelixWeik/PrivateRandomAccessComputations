@@ -6,17 +6,18 @@
 #include "cdpf.hpp"
 #include "rdpf.hpp"
 
-// Pass the player number and desired size
+// Pass the player number and desired size => scales the vectors to the given size (unsigned long has at most 2^64 - 1 values)
+// This means a 64-bit vector suffices to index into every item of the database
 template <typename T>
 Duoram<T>::Duoram(int player, size_t size) : player(player),
         oram_size(size), p0_blind(blind), p1_blind(peer_blinded_db) {
     if (player < 2) {
-        database.resize(size);
+        database.resize(size);  // initialisiert den vektor mit size-vielen T werten (alle null) => kann dann geupdatet werden
         blind.resize(size);
         peer_blinded_db.resize(size);
     } else {
-        p0_blind.resize(size);
-        p1_blind.resize(size);
+        p0_blind.resize(size);  // adjusts the vector length to match the size of the database (= value stored in size)
+        p1_blind.resize(size);  // same here
     }
 }
 
