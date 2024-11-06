@@ -784,21 +784,21 @@ static void duoram(MPCIO &mpcio,
 
     MPCTIO tio(mpcio, 0, opts.num_cpu_threads);
     run_coroutines(tio, [&mpcio, &tio, depth, items] (yield_t &yield) {
-        size_t size = size_t(1)<<depth;
+        size_t size = size_t(1)<<depth;  // size = 2^depth
         address_t mask = (depth < ADDRESS_MAX_BITS ?
             ((address_t(1)<<depth) - 1) : ~0);
         Duoram<T> oram(tio.player(), size);
-        auto A = oram.flat(tio, yield);
+        auto A = oram.flat(tio, yield);  // Duoram will be accessed via "Flat"-Shape
 
         std::cout << "===== DEPENDENT UPDATES =====\n";
         mpcio.reset_stats();
         tio.reset_lamport();
-        // Make a linked list of length items
+        // Make a linked list of length items => the indices written in here will first be updated, then read twice
         std::vector<T> list_indices;
         T prev_index, next_index;
-        prev_index.randomize(depth);
+        prev_index.randomize(depth);  // sets prev_index to a random value that is depth-bits long
         for (int i=0;i<items;++i) {
-            next_index.randomize(depth);
+            next_index.randomize(depth);  // important: randomize is pseudorandom (also adds a bit-mask)
             A[next_index] += prev_index;
             list_indices.push_back(next_index);
             prev_index = next_index;
@@ -806,7 +806,7 @@ static void duoram(MPCIO &mpcio,
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
-        std::cout << "\n===== DEPENDENT READS =====\n";
+        std::cout << "\n===== DEPENDENT READS =====\n";  // dependent = read n can only be started after n-1 finished
         mpcio.reset_stats();
         tio.reset_lamport();
         // Read the linked list starting with prev_index
@@ -817,10 +817,10 @@ static void duoram(MPCIO &mpcio,
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
-        std::cout << "\n===== INDEPENDENT READS =====\n";
+        std::cout << "\n===== INDEPENDENT READS =====\n";  // independent = all indices are known before computation
         mpcio.reset_stats();
         tio.reset_lamport();
-        // Read all the entries in the list at once
+        // Read all the entries in the list at once (= read all indices that have been updated)
         std::vector<T> read_outputs = A[list_indices];
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
@@ -866,8 +866,8 @@ static void duoram(MPCIO &mpcio,
         // A[addr+3]=val+3
         cur_index = prev_index;
         for (int i=0;i<items;++i) {
-            T next_index = A[cur_index];
-            A[cur_index+three] = next_index+three;
+            T next_index = A[cur_index];  // reading
+            A[cur_index+three] = next_index+three;  // updating = reading + writing
             cur_index = next_index;
         }
         tio.sync_lamport();
