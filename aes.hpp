@@ -84,6 +84,7 @@ static inline void AES_ECB_encrypt(__m128i &ciphertext, __m128i plaintext,
 // This code too is from page 27 of
 // http://www.intel.com/content/dam/doc/white-paper/advanced-encryption-standard-new-instructions-set-paper.pdf
 
+using AESkey = __m256i[22];
 
 inline void KEY_256_ASSIST_1(__m128i* temp1, __m128i * temp2)
 {
@@ -112,7 +113,7 @@ inline void KEY_256_ASSIST_2(__m128i* temp1, __m128i * temp3)
     *temp3 = _mm_xor_si128 (*temp3, temp2);
 }
 
-void AES_256_Key_Expansion (const unsigned char *userkey,
+static void AES_256_Key_Expansion (const unsigned char *userkey,
  unsigned char *key)
 {
     __m128i temp1, temp2, temp3;
