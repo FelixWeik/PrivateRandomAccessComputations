@@ -798,7 +798,7 @@ static void duoram(MPCIO &mpcio,
         T prev_index, next_index;
         prev_index.randomize(depth);  // sets prev_index to a random value that is depth-bits long
         for (int i=0;i<items;++i) {
-            next_index.randomize(depth);
+            next_index.randomize(depth);  // important: randomize is pseudorandom (also adds a bit-mask)
             A[next_index] += prev_index;
             list_indices.push_back(next_index);
             prev_index = next_index;

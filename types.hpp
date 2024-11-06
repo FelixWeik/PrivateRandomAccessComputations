@@ -58,7 +58,7 @@ struct RegAS {
     // Set each side's share to a random value nbits bits long
     inline void randomize(size_t nbits = VALUE_BITS) {
         value_t mask = MASKBITS(nbits);
-        arc4random_buf(&ashare, sizeof(ashare));
+        arc4random_buf(&ashare, sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
         ashare &= mask;
     }
 

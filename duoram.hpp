@@ -31,6 +31,12 @@
 // standard sharing type for the Duoram implementation. This introduces
 // the necessity of converting the XOR shares of the DPF to additive shares.
 
+// Please note that the duoram object held by the server differs from the
+// duoram held by the peers. while the peers also hold the database, the
+// server only holds each peers blind. the differentiation happens in the
+// constructor by the number of the player (peer = 0 || 1; server = 2). These
+// values will not be initialised if they are not needed by the given party.
+
 template <typename T>
 class Duoram {
     // The computational parties have three vectors: the share of the
@@ -39,8 +45,9 @@ class Duoram {
     // database share (its database share plus its blind).
 
     // The player number (0 and 1 for the computational parties and 2
-    // for the server) and the size of the Duoram
+    // for the server)
     int player;
+    // size of the Duoram
     size_t oram_size;
 
     // The server has two vectors: a copy of each computational party's
@@ -439,7 +446,7 @@ public:
         return Flat(*this, this->tio, new_yield);
     }
 
-    // Index into this Flat in various ways
+    // Index into this Flat in various ways => return value has type MemRefS (if not using direct address)
     typename Duoram::Shape::template MemRefS<RegAS,T,std::nullopt_t,Flat,1>
             operator[](const RegAS &idx) {
         typename Duoram<T>::Shape::
@@ -504,7 +511,8 @@ public:
 };
 
 // Oblivious indices for use in related-index ORAM accesses.
-// Verwaltet die RDPFTriples / Pairs (für Server); Einsatz im Kontext von MemRefS (= oblivious reads und writes)
+// Verwaltet die RDPFTriples (für Peers) / Pairs (für Server); Einsatz im Kontext von MemRefS (= oblivious reads und writes)
+// performing oblivious reads can be done using oblivIndex, but also by using RegAS or RegXS
 
 template <typename T>
 template <typename U, nbits_t WIDTH>
@@ -518,7 +526,7 @@ class Duoram<T>::OblivIndex {
     nbits_t curdepth, maxdepth;
     nbits_t next_windex;
     bool incremental;
-    U idx;
+    U idx;  // either RegXS or RegAS
 
 public:
     // Non-incremental constructor
@@ -624,7 +632,7 @@ class Duoram<T>::Shape::MemRefS {
     // (for example incremental ORAM accesses), the caller will own (and
     // modify between uses) the OblivIndex.  In that case, oblividx will
     // be a pointer to the caller's OblivIndex object, and
-    // our_oblividx will be nullopt.
+    // our_oblividx will be nullopt. => There exist multiple oblivIndex objects
     std::optional<Duoram<T>::OblivIndex<U,WIDTH>> our_oblividx;
     Duoram<T>::OblivIndex<U,WIDTH> *oblividx;
 
