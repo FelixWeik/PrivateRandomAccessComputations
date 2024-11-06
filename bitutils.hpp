@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <x86intrin.h>  // SSE and AVX intrinsics
 
-#if VALUE_BITS = 64
+#if VALUE_BITS == 64
 static const __m128i bool128_mask[2] = {
     _mm_set_epi64x(0,1),                                        // 0b00...0001
     _mm_set_epi64x(1,0)                                         // 0b00...0001 << 64
@@ -139,7 +139,7 @@ inline uint8_t bit_at(const __m128i &block, uint8_t position)
     }
 }
 
-#elif VALUE_BITS > 64
+#else
 
 static const __m256i bool256_mask[2] = {
     _mm256_set_epi64x(0, 0, 0, 1),                            // 0b00...0001

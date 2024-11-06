@@ -46,7 +46,7 @@ using bit_t = bool;
 #if VALUE_BITS == 256
 using nbits_t = uint32_t;
 #elif VALUE_BITS == 128
-using nbits_t = uint16_t
+using nbits_t = uint16_t;
 #elif VALUE_BITS == 64
 using nbits_t = uint8_t;
 #endif
@@ -212,7 +212,7 @@ struct RegBS {
     }
 };
 
-// The type of a register holding an XOR share of a value
+// The type of register holding an XOR share of a value
 struct RegXS {
     value_t xshare;
 
@@ -678,7 +678,7 @@ inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 template <typename S, size_t N>
 inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 {
-#if VALUE_BITS = 64
+#if VALUE_BITS == 64
     A[0] ^= lsb128_mask[B];
 #elif VALUE_BITS > 64
     A[0] ^= lsb256_mask[B];
@@ -762,7 +762,7 @@ using DPFnode = __m532i;
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
-#if VALUE_BITS = 64
+#if VALUE_BITS == 64
     A ^= lsb128_mask[B];
 #elif VALUE_BITS = 128
     A ^= lsb256_mask[B];
