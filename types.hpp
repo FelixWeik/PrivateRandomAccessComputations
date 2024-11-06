@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <x86intrin.h>  // SSE and AVX intrinsics
 #include <bsd/stdlib.h> // arc4random_buf
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "bitutils.hpp"
 
@@ -20,7 +21,13 @@
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
 
-#if VALUE_BITS == 64
+//TODO Fallunterscheidung damit VALUE_BITS zum Ausführungsbeginn erst festgelegt wird anstatt Hardcode
+
+#if VALUE_BITS == 256
+using value_t = boost::multiprecision::uint256_t;
+#elif VALUE_BITS == 128
+using value_t = __uint128_t;
+#elif VALUE_BITS == 64
 using value_t = uint64_t;
 #elif VALUE_BITS == 32
 using value_t = uint32_t;
@@ -36,7 +43,13 @@ using bit_t = bool;
 
 // Counts of the number of bits in a value are of this type, which must
 // be large enough to store the _value_ VALUE_BITS
+#if VALUE_BITS == 256
+using nbits_t = uint32_t;
+#elif VALUE_BITS == 128
+using nbits_t = uint16_t
+#elif VALUE_BITS == 64
 using nbits_t = uint8_t;
+#endif
 
 // Convert a number of bits to the number of bytes required to store (or
 // more to the point, send) them.
@@ -52,8 +65,8 @@ struct RegAS {
 
     RegAS() : ashare(0) {}
 
-    inline value_t share() const { return ashare; }
-    inline void set(value_t s) { ashare = s; }
+    value_t share() const { return ashare; }
+    void set(value_t s) { ashare = s; }
 
     // Set each side's share to a random value nbits bits long
     inline void randomize(size_t nbits = VALUE_BITS) {
@@ -206,11 +219,11 @@ struct RegXS {
     RegXS() : xshare(0) {}
     RegXS(const RegBS &b) { xshare = b.bshare ? ~0 : 0; }
 
-    inline value_t share() const { return xshare; }
-    inline void set(value_t s) { xshare = s; }
+    value_t share() const { return xshare; }
+    void set(value_t s) { xshare = s; }
 
     // Set each side's share to a random value nbits bits long
-    inline void randomize(size_t nbits = VALUE_BITS) {
+    void randomize(size_t nbits = VALUE_BITS) {
         value_t mask = MASKBITS(nbits);
         arc4random_buf(&xshare, sizeof(xshare));
         xshare &= mask;
@@ -221,39 +234,39 @@ struct RegXS {
 
     // We also include actual XOR operators for convenience
 
-    inline RegXS &operator+=(const RegXS &rhs) {
+    RegXS &operator+=(const RegXS &rhs) {
         this->xshare ^= rhs.xshare;
         return *this;
     }
 
-    inline RegXS operator+(const RegXS &rhs) const {
+    RegXS operator+(const RegXS &rhs) const {
         RegXS res = *this;
         res += rhs;
         return res;
     }
 
-    inline RegXS &operator-=(const RegXS &rhs) {
+    RegXS &operator-=(const RegXS &rhs) {
         this->xshare ^= rhs.xshare;
         return *this;
     }
 
-    inline RegXS operator-(const RegXS &rhs) const {
+    RegXS operator-(const RegXS &rhs) const {
         RegXS res = *this;
         res -= rhs;
         return res;
     }
 
-    inline RegXS operator-() const {
+    RegXS operator-() const {
         RegXS res = *this;
         return res;
     }
 
-    inline RegXS &operator*=(value_t rhs) {
+    RegXS &operator*=(value_t rhs) {
         this->xshare &= rhs;
         return *this;
     }
 
-    inline RegXS operator*(value_t rhs) const {
+    RegXS operator*(value_t rhs) const {
         RegXS res = *this;
         res *= rhs;
         return res;
@@ -261,7 +274,7 @@ struct RegXS {
 
     // Multiply a scalar by a vector
     template <size_t N>
-    inline std::array<RegXS,N> operator*(std::array<value_t,N> rhs) const {
+    std::array<RegXS,N> operator*(std::array<value_t,N> rhs) const {
         std::array<RegXS,N> res;
         for (size_t i=0;i<N;++i) {
             res[i] = *this;
@@ -270,23 +283,23 @@ struct RegXS {
         return res;
     }
 
-    inline RegXS &operator^=(const RegXS &rhs) {
+    RegXS &operator^=(const RegXS &rhs) {
         this->xshare ^= rhs.xshare;
         return *this;
     }
 
-    inline RegXS operator^(const RegXS &rhs) const {
+    RegXS operator^(const RegXS &rhs) const {
         RegXS res = *this;
         res ^= rhs;
         return res;
     }
 
-    inline RegXS &operator&=(value_t mask) {
+    RegXS &operator&=(value_t mask) {
         this->xshare &= mask;
         return *this;
     }
 
-    inline RegXS operator&(value_t mask) const {
+    RegXS operator&(value_t mask) const {
         RegXS res = *this;
         res &= mask;
         return res;
@@ -294,29 +307,29 @@ struct RegXS {
 
     // Bit shifting and bit extraction
 
-    inline RegXS &operator<<=(nbits_t shift) {
+    RegXS &operator<<=(nbits_t shift) {
         this->xshare <<= shift;
         return *this;
     }
 
-    inline RegXS operator<<(nbits_t shift) const {
+    RegXS operator<<(nbits_t shift) const {
         RegXS res = *this;
         res <<= shift;
         return res;
     }
 
-    inline RegXS &operator>>=(nbits_t shift) {
+    RegXS &operator>>=(nbits_t shift) {
         this->xshare >>= shift;
         return *this;
     }
 
-    inline RegXS operator>>(nbits_t shift) const {
+    RegXS operator>>(nbits_t shift) const {
         RegXS res = *this;
         res >>= shift;
         return res;
     }
 
-    inline RegBS bitat(nbits_t pos) const {
+    RegBS bitat(nbits_t pos) const {
         RegBS bs;
         bs.set(!!(this->xshare & (value_t(1)<<pos)));
         return bs;
@@ -328,18 +341,18 @@ struct RegXS {
         *this *= rhs.xshare;
         return *this;
     }
-    inline RegXS mulshare(const RegXS &rhs) const {
+    RegXS mulshare(const RegXS &rhs) const {
         RegXS res = *this;
         res *= rhs.xshare;
         return res;
     }
 
-    inline void dump() const {
+    void dump() const {
         printf("%016lx", xshare);
     }
 
     // Extract a bit share of bit bitnum of the XOR-shared register
-    inline RegBS bit(nbits_t bitnum) const {
+    RegBS bit(nbits_t bitnum) const {
         RegBS bs;
         bs.bshare = !!(xshare & (value_t(1)<<bitnum));
         return bs;
@@ -665,7 +678,11 @@ inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 template <typename S, size_t N>
 inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 {
+#if VALUE_BITS = 64
     A[0] ^= lsb128_mask[B];
+#elif VALUE_BITS > 64
+    A[0] ^= lsb256_mask[B];
+#endif
     return A;
 }
 
@@ -697,6 +714,10 @@ inline std::tuple<std::array<value_t,N>,std::array<value_t,N>,std::array<value_t
 using address_t = uint32_t;
 #elif ADDRESS_MAX_BITS <= 64
 using address_t = uint64_t;
+#elif ADDRESS_MAX_BITS <= 128
+using address_t = __uint128_t;
+#elif ADDRESS_MAX_BITS <= 256
+using address_t = boost::multiprecision::uint256_t;
 #else
 #error "Unsupported value of ADDRESS_MAX_BITS"
 #endif
@@ -731,13 +752,21 @@ struct AndTripleName { static constexpr const char *name = "a"; };
 
 // The type of nodes in a DPF.  This must be at least as many bits as
 // the security parameter, and at least twice as many bits as value_t.
-
+#if VALUE_BITS <= 64
 using DPFnode = __m128i;
-
+#elif VALUE_BITS <= 128
+using DPFnode = __m256i;
+#elif VALUE_BITS <= 256
+using DPFnode = __m532i;
+#endif
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
+#if VALUE_BITS = 64
     A ^= lsb128_mask[B];
+#elif VALUE_BITS = 128
+    A ^= lsb256_mask[B];
+#endif
     return A;
 }
 
