@@ -14,7 +14,7 @@
 // The number of bits in an MPC secret-shared memory word
 
 #ifndef VALUE_BITS
-#define VALUE_BITS 64
+#define VALUE_BITS 128
 #endif
 
 // Values in MPC secret-shared memory are of this type.
@@ -764,7 +764,7 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
 #if VALUE_BITS == 64
     A ^= lsb128_mask[B];
-#elif VALUE_BITS = 128
+#elif VALUE_BITS == 128
     A ^= lsb256_mask[B];
 #endif
     return A;

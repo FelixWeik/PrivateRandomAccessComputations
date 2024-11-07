@@ -197,7 +197,11 @@ inline typename RDPF<WIDTH>::LeafNode RDPF<WIDTH>::descend_to_leaf(
         LeafNode CWR = CW;
         bit_t cfbit = !!(leaf_cfbits &
             (value_t(1)<<(maxdepth-parentdepth-1)));
+#if VALUE_BITS == 64
         CWR[0] ^= lsb128_mask[cfbit];
+#elif VALUE_BITS > 64
+        CWR[0] ^= lsb256_mask[cfbit];
+#endif
         prgout ^= (whichchild ? CWR : CW);
     }
     return prgout;
@@ -370,7 +374,11 @@ T& operator>>(T &is, RDPFPair<WIDTH> &rdpfpair)
 // Set a DPFnode to zero
 static inline void zero(DPFnode &z)
 {
+#if VALUE_BITS == 64
     z = _mm_setzero_si128();
+#elif VALUE_BITS >= 64
+    z = _mm256_setzero_si256();
+#endif
 }
 
 // Set a LeafNode to zero
@@ -910,7 +918,7 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
                     DPFnode CW;
                     bool cfbit;
                     // This field is ignored when we're not expanding to a leaf
-                    // level, but it needs to be an lvalue reference.
+                    // level, but it needs to be a lvalue reference.
                     int noleafinfo = 0;
                     create_level(tio, yield, curlevel, nextlevel, player, level,
                         depth, bs_choice, CW, cfbit, save_expansion, noleafinfo,
