@@ -566,24 +566,64 @@ static inline void finalize_leaf_layer_nothreads(size_t start,
             nextlevel[2*i+1] = rightchild;
         }
         // Divides the 128bit vectors into two 64-bit vectors leftchild => (lefthigh, leftlow) and right, respectively
+#if VALUE_BITS == 64
         value_t leftlow = value_t(_mm_cvtsi128_si64x(leftchild[0]));
         value_t rightlow = value_t(_mm_cvtsi128_si64x(rightchild[0]));
         value_t lefthigh =
             value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leftchild[0],8)));
         value_t righthigh =
             value_t(_mm_cvtsi128_si64x(_mm_srli_si128(rightchild[0],8)));
+#elif VALUE_BITS == 128
+        auto leftLow_lower = _mm256_castsi256_si128(leftchild[0]);
+        auto leftLow_upper = _mm256_extracti128_si256(leftchild[0], 1);
+
+        auto rightLow_lower = _mm256_castsi256_si128(rightchild[0]);
+        auto rightLow_upper = _mm256_extracti128_si256(rightchild[0], 1);
+
+        value_t leftlow = value_t(_mm_cvtsi128_si64x(leftLow_lower)) |
+                             (value_t(_mm_extract_epi64(leftLow_lower, 1)) << 64);
+
+        value_t lefthigh = value_t(_mm_cvtsi128_si64x(leftLow_upper)) |
+                             (value_t(_mm_extract_epi64(leftLow_upper, 1)) << 64);
+
+        value_t rightlow = value_t(_mm_cvtsi128_si64x(rightLow_lower)) |
+                             (value_t(_mm_extract_epi64(rightLow_lower, 1)) << 64);
+
+        value_t righthigh = value_t(_mm_cvtsi128_si64x(rightLow_upper)) |
+                             (value_t(_mm_extract_epi64(rightLow_upper, 1)) << 64);
+#endif
         llow_sum += (leftlow + rightlow);
         lhigh_sum[0] += (lefthigh + righthigh);
         lhigh_xor[0] ^= (lefthigh ^ righthigh);
         size_t w = 0;
         for (size_t j=1; j<WIDTH; j+=2) {
             ++w;
+#if VALUE_BITS == 64
             value_t leftlow = value_t(_mm_cvtsi128_si64x(leftchild[w]));
             value_t rightlow = value_t(_mm_cvtsi128_si64x(rightchild[w]));
             value_t lefthigh =
                 value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leftchild[w],8)));
             value_t righthigh =
                 value_t(_mm_cvtsi128_si64x(_mm_srli_si128(rightchild[w],8)));
+# elif VALUE_BITS == 128
+            auto leftLow_lower = _mm256_castsi256_si128(leftchild[w]);
+            auto leftLow_upper = _mm256_extracti128_si256(leftchild[w], 1);
+
+            auto rightLow_lower = _mm256_castsi256_si128(rightchild[w]);
+            auto rightLow_upper = _mm256_extracti128_si256(rightchild[w], 1);
+
+            value_t leftlow = value_t(_mm_cvtsi128_si64x(leftLow_lower)) |
+                                 (value_t(_mm_extract_epi64(leftLow_lower, 1)) << 64);
+
+            value_t lefthigh = value_t(_mm_cvtsi128_si64x(leftLow_upper)) |
+                                 (value_t(_mm_extract_epi64(leftLow_upper, 1)) << 64);
+
+            value_t rightlow = value_t(_mm_cvtsi128_si64x(rightLow_lower)) |
+                                 (value_t(_mm_extract_epi64(rightLow_lower, 1)) << 64);
+
+            value_t righthigh = value_t(_mm_cvtsi128_si64x(rightLow_upper)) |
+                                 (value_t(_mm_extract_epi64(rightLow_upper, 1)) << 64);
+#endif
             lhigh_sum[j] += (leftlow + rightlow);
             lhigh_xor[j] ^= (leftlow ^ rightlow);
             if (j+1 < WIDTH) {

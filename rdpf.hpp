@@ -104,17 +104,17 @@ struct RDPF : public DPF {
         bool save_expansion = false);
 
     // Do we have a precomputed expansion?
-    inline bool has_expansion() const {
+    bool has_expansion() const {
         return li[maxdepth-curdepth].expansion.size() > 0;
     }
 
     // Get an element of the expansion
-    inline LeafNode get_expansion(address_t index) const {
+    LeafNode get_expansion(address_t index) const {
         return li[maxdepth-curdepth].expansion[index];
     }
 
     // The depth
-    inline nbits_t depth() const { return curdepth; }
+    nbits_t depth() const { return curdepth; }
 
     // Set the current depth for an incremental RDPF; 0 means to use
     // maxdepth
@@ -150,9 +150,13 @@ struct RDPF : public DPF {
     }
 
     // Get the additive-shared unit vector entry from the leaf node
-    inline RegAS unit_as(const LeafNode &leaf) const {
+    RegAS unit_as(const LeafNode &leaf) const {
         RegAS a;
+#if VALUE_BITS == 64
         value_t lowword = value_t(_mm_cvtsi128_si64x(leaf[0]));
+#elif VALUE_BITS == 128
+        value_t lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 0)));
+#endif
         if (whichhalf == 1) {
             lowword = -lowword;
         }
@@ -161,9 +165,10 @@ struct RDPF : public DPF {
     }
 
     // Get the XOR-shared scaled vector entry from the leaf node
-    inline RegXSW scaled_xs(const LeafNode &leaf) const {
+    RegXSW scaled_xs(const LeafNode &leaf) const {
         RegXSW x;
         nbits_t j = 0;
+#if VALUE_BITS == 64
         value_t highword =
             value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[0],8)));
         x[j++].xshare = highword;
@@ -177,13 +182,30 @@ struct RDPF : public DPF {
                 x[j++].xshare = highword;
             }
         }
+#elif VALUE_BITS == 128
+        value_t highword = (static_cast<value_t>(_mm_cvtsi128_si64x(_mm_srli_si128(_mm256_extracti128_si256(leaf[0], 1), 8))) << 64) |
+                   static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 1)));
+        x[j++].xshare = highword;
+
+        for (nbits_t i = 1; i < LWIDTH; ++i) {
+            value_t lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 0)));
+            value_t highword = (static_cast<value_t>(_mm_cvtsi128_si64x(_mm_srli_si128(_mm256_extracti128_si256(leaf[i], 1), 8))) << 64) |
+                               static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 1)));
+
+            x[j++].xshare = lowword;
+            if (j < WIDTH) {
+                x[j++].xshare = highword;
+            }
+        }
+#endif
         return x;
     }
 
     // Get the additive-shared scaled vector entry from the leaf node
-    inline RegASW scaled_as(const LeafNode &leaf) const {
+    RegASW scaled_as(const LeafNode &leaf) const {
         RegASW a;
         nbits_t j = 0;
+# if VALUE_BITS == 64
         value_t highword =
             value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[0],8)));
         if (whichhalf == 1) {
@@ -195,6 +217,23 @@ struct RDPF : public DPF {
                 value_t(_mm_cvtsi128_si64x(leaf[i]));
             value_t highword =
                 value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[i],8)));
+#elif VALUE_BITS == 128
+        value_t highword = (static_cast<value_t>(_mm_cvtsi128_si64x(_mm_srli_si128(_mm256_extracti128_si256(leaf[0], 1), 8))) << 64) |
+                   static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 1)));
+        if (whichhalf == 1) {
+            highword = -highword;
+        }
+        a[j++].ashare = highword;
+        for (nbits_t i=1;i<WIDTH;++i) {
+            auto loword_lower = _mm256_castsi256_si128(leaf[i]);
+            auto loword_upper = _mm256_extracti128_si256(leaf[i], 1);
+
+            auto lowword = value_t(_mm_cvtsi128_si64x(loword_lower)) |
+                                 (value_t(_mm_extract_epi64(loword_lower, 1)) << 64);
+
+            auto highword = value_t(_mm_cvtsi128_si64x(loword_upper)) |
+                                 (value_t(_mm_extract_epi64(loword_upper, 1)) << 64);
+#endif
             if (whichhalf == 1) {
                 lowword = -lowword;
                 highword = -highword;
