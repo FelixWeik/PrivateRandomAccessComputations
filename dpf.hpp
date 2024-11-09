@@ -38,7 +38,7 @@ struct DPF {
     // The type of nodes
     using node = DPFnode;
 
-    // The 128-bit seed
+    // The 128-bit (256-bit respectively) seed
     DPFnode seed;
     // 0 = left half, 1 = right half
     bit_t whichhalf;
@@ -49,7 +49,7 @@ struct DPF {
     value_t cfbits;
 
     // The seed
-    inline node get_seed() const { return seed; }
+    node get_seed() const { return seed; }
 
     // Descend from a node at depth parentdepth to one of its children
     // whichchild = 0: left child
@@ -72,7 +72,11 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
     if (flag) {
         DPFnode CW = cw[parentdepth];
         bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
+#if VALUE_BITS == 64
         DPFnode CWR = CW ^ lsb128_mask[cfbit];
+#else //TODO only covered 128-bit case here => add more if needed
+        DPFnode CWR = CW ^ lsb256_mask[cfbit];
+#endif
         prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;

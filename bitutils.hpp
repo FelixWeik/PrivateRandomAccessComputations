@@ -257,4 +257,4 @@ inline uint8_t bit_at(const __m256i & block, uint8_t position)
 }
 
 #endif
-#endif __BITUTILS_HPP__
+#endif

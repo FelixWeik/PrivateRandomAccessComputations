@@ -197,8 +197,8 @@ template <size_t LWIDTH>
 static void prgboth(std::array<__m256i,LWIDTH> &left,
     std::array<__m256i,LWIDTH> &right, __m256i seed, size_t &aes_ops)
 {
-    left = prg<LWIDTH>(left, set_lsb(seed, 0), 0, aes_ops);
-    right = prg<LWIDTH>(right, set_lsb(seed, 1), 1, aes_ops);
+    prg<LWIDTH>(left, set_lsb(seed, 0), 0, aes_ops);  // automatically safes to left / right
+    prg<LWIDTH>(right, set_lsb(seed, 1), 1, aes_ops);
 }
 
 # endif
