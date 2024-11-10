@@ -2,3 +2,6 @@
 repro
 repro/comps
 repro/data
+*.o
+*.out
+*.dat
