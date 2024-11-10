@@ -705,7 +705,7 @@ inline std::tuple<std::array<value_t,N>,std::array<value_t,N>,std::array<value_t
 // places for this value to be at most 32.
 
 #ifndef ADDRESS_MAX_BITS
-#define ADDRESS_MAX_BITS 32
+#define ADDRESS_MAX_BITS 128
 #endif
 
 // Addresses of MPC secret-shared memory are of this type

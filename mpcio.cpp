@@ -769,8 +769,13 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             DPFnode X0ext, X1ext;
             // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
             // 1 -> 1111...1)
+#if VALUE_BITS == 64
             X0ext = if128_mask[X0];
             X1ext = if128_mask[X1];
+#else
+            X0ext = if256_mask[X0];
+            X1ext = if256_mask[X1];
+#endif
             Z1 = ((X0ext & Y1) ^ (X1ext & Y0)) ^ Z0;
             queue_p0(&X0, sizeof(X0));
             queue_p0(&Y0, sizeof(Y0));

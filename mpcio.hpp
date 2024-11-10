@@ -34,9 +34,9 @@ public:
         nbits_t depth = 0, nbits_t width = 1);
     void get(T& nextval);
 
-    inline void inc() { ++count; }
-    inline size_t get_stats() { return count; }
-    inline void reset_stats() { count = 0; }
+    void inc() { ++count; }
+    size_t get_stats() { return count; }
+    void reset_stats() { count = 0; }
 private:
     std::ifstream storage;
     std::string name;
