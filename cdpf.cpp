@@ -50,14 +50,19 @@ std::tuple<CDPF,CDPF> CDPF::generate(value_t target, size_t &aes_ops)
         if (curlevel < depth-1) {
             if (targetdir == 0) {
                 // The target is to the left, so make the correction word
-                // and bit make the right children the same and the left
+                // and a bit make the right children the same and the left
                 // children have different flag bits.
 
                 // Recall that descend will apply (only for the party whose
                 // current node (cur0 or cur1) has the flag bit set, for
                 // which exactly one of the two will) CW to both children,
                 // and cfbit to the flag bit of the right child.
+
+#if VALUE_BITS == 64
                 CW = right0 ^ right1 ^ lsb128_mask[cfbit];
+#elif VALUE_BITS == 128
+                CW = right0 ^ right1 ^ lsb256_mask[cfbit];
+#endif
 
                 // Compute the current nodes for the next level
                 // Exactly one of these two XORs will fire, so afterwards,
@@ -73,9 +78,13 @@ std::tuple<CDPF,CDPF> CDPF::generate(value_t target, size_t &aes_ops)
 
                 // Compute the current nodes for the next level
                 // Exactly one of these two XORs will fire, so similar to
-                // the above, afterwards, cur0 ^ cur1 = right0 ^ right1 ^ CWR,
+                // the above, afterward, cur0 ^ cur1 = right0 ^ right1 ^ CWR,
                 // which will have low bit 1.
+#if VALUE_BITS == 64
                 DPFnode CWR = CW ^ lsb128_mask[cfbit];
+#elif VALUE_BITS == 128
+                DPFnode CWR = CW ^ lsb256_mask[cfbit];
+#endif
                 cur0 = xor_if(right0, CWR, flag0);
                 cur1 = xor_if(right1, CWR, flag1);
             }
@@ -90,13 +99,22 @@ std::tuple<CDPF,CDPF> CDPF::generate(value_t target, size_t &aes_ops)
             // happens to be the low bit of the word; i.e., the low 7
             // bits of target are all 0).
 
+#if VALUE_BITS == 64
             // This will be a 128-bit word with a single bit set, in
             // position (target & 0x7f).
             uint8_t loc = (target & 0x7f);
             DPFnode target_set_bit = _mm_set_epi64x(
                 loc >= 64 ? (uint64_t(1)<<(loc-64)) : 0,
                 loc >= 64 ? 0 : (uint64_t(1)<<loc));
-
+#elif VALUE_BITS == 128
+            uint16_t loc = (target & 0xfe);  // 0xfe is two times 0x7f
+            DPFnode target_set_bit = _mm256_set_epi64x(
+            loc >= 192 ? (uint64_t(1) << (loc - 192)) : 0,    // 192–255
+            loc >= 128 && loc < 192 ? (uint64_t(1) << (loc - 128)) : 0,  // 128–191
+            loc >= 64 && loc < 128 ? (uint64_t(1) << (loc - 64)) : 0,    // 64–127
+            loc < 64 ? (uint64_t(1) << loc) : 0                           // 0–63
+            );
+#endif
             if (targetdir == 0) {
                 // We want the right children to be the same, and the
                 // left children to be the same except for the target
