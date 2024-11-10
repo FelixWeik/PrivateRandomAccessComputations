@@ -19,7 +19,7 @@ class Duoram<T>::Pad : public Duoram<T>::Shape {
     T *zerop;
     address_t padded_size;
 
-    inline size_t indexmap(size_t idx) const override {
+    size_t indexmap(size_t idx) const override {
         return idx;
     }
 
@@ -50,7 +50,7 @@ public:
     // Get a pair (for the server) of references to the underlying
     // Duoram entries at share virtual index idx.  (That is, it gets
     // duoram.p0_blind[indexmap(idx)], etc.)
-    inline std::tuple<T&,T&> get_server(size_t idx,
+    std::tuple<T&,T&> get_server(size_t idx,
         std::nullopt_t null = std::nullopt) const override {
         size_t parindex = indexmap(idx);
         if (parindex < this->parent.shape_size) {
@@ -63,7 +63,7 @@ public:
     // Get a triple (for the computational players) of references to the
     // underlying Duoram entries at share virtual index idx.  (That is,
     // it gets duoram.database[indexmap(idx)], etc.)
-    inline std::tuple<T&,T&,T&> get_comp(size_t idx,
+    std::tuple<T&,T&,T&> get_comp(size_t idx,
         std::nullopt_t null = std::nullopt) const override {
         size_t parindex = indexmap(idx);
         if (parindex < this->parent.shape_size) {

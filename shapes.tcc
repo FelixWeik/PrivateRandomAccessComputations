@@ -5,7 +5,7 @@
 // explicit-only mode.
 template <typename T>
 Duoram<T>::Pad::Pad(Shape &parent, MPCTIO &tio, yield_t &yield,
-    address_t padded_size, size_t padval) :
+    address_t padded_size, value_t padval) :
     Shape(parent, parent.duoram, tio, yield)
 {
     int player = tio.player();
