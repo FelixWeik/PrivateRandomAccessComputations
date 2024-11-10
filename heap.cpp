@@ -6,6 +6,18 @@
 #include "shapes.hpp"
 #include "heap.hpp"
 
+
+std::ostream& operator<<(std::ostream& os, __uint128_t value) {
+    if (value == 0) return os << "0";
+
+    std::string result;
+    while (value > 0) {
+        result.insert(result.begin(), '0' + value % 10);
+        value /= 10;
+    }
+    return os << result;
+}
+
 /*
 The heap datastructure is stored in an array with the starting index as 1 (and not 0)
 For nodes stored in index i of the array, the parent is stored at i/2 and

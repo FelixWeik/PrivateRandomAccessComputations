@@ -1,5 +1,5 @@
 .idea
-repro
+./repro
 repro/comps
 repro/data
 *.o
