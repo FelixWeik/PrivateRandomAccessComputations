@@ -332,15 +332,19 @@ bool mpc_reconstruct(MPCTIO &tio, yield_t &yield, RegBS f)
 void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     DPFnode &z, RegBS f, DPFnode x, DPFnode y)
 {
+#if VALUE_BITS == 64
     // Sign-extend f (so 0 -> 0000...0; 1 -> 1111...1)
     DPFnode fext = if128_mask[f.bshare];
+#elif VALUE_BITS == 128
+    DPFnode fext = if256_mask[f.bshare];
+#endif
 
     // Compute XOR shares of f & (x ^ y)
-    auto [X, Y, Z] = tio.nodeselecttriple(yield);
+    SelectTriple<DPFnode> a = tio.nodeselecttriple(yield);
 
-    bit_t blind_f = f.bshare ^ X;
+    bit_t blind_f = f.bshare ^ a.X;
     DPFnode d = x ^ y;
-    DPFnode blind_d = d ^ Y;
+    DPFnode blind_d = d ^ a.Y;
 
     // Send the blinded values
     tio.queue_peer(&blind_f, sizeof(blind_f));
@@ -354,11 +358,15 @@ void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     tio.recv_peer(&peer_blind_f, sizeof(peer_blind_f));
     tio.recv_peer(&peer_blind_d, sizeof(peer_blind_d));
 
+#if VALUE_BITS == 64
     // Compute _our share_ of f ? x : y = (f * (x ^ y))^x
     DPFnode peer_blind_fext = if128_mask[peer_blind_f];
+#elif VALUE_BITS == 128
+    DPFnode peer_blind_fext = if256_mask[peer_blind_f];
+#endif
     DPFnode zshare =
-            (fext & peer_blind_d) ^ (Y & peer_blind_fext) ^
-            (fext & d) ^ (Z ^ x);
+            (fext & peer_blind_d) ^ (a.Y & peer_blind_fext) ^
+            (fext & d) ^ (a.Z ^ x);
 
     // Now exchange shares
     tio.queue_peer(&zshare, sizeof(zshare));
