@@ -125,7 +125,7 @@ struct RegAS {
 
     // Multiply a scalar by a vector
     template <size_t N>
-    inline std::array<RegAS,N> operator*(std::array<value_t,N> rhs) const {
+    std::array<RegAS,N> operator*(std::array<value_t,N> rhs) const {
         std::array<RegAS,N> res;
         for (size_t i=0;i<N;++i) {
             res[i] = *this;
@@ -134,12 +134,12 @@ struct RegAS {
         return res;
     }
 
-    inline RegAS &operator&=(value_t mask) {
+    RegAS &operator&=(value_t mask) {
         this->ashare &= mask;
         return *this;
     }
 
-    inline RegAS operator&(value_t mask) const {
+    RegAS operator&(value_t mask) const {
         RegAS res = *this;
         res &= mask;
         return res;
@@ -147,7 +147,7 @@ struct RegAS {
 
     // Multiply by the local share of the argument, not multiplcation of
     // two shared values (two versions)
-    inline RegAS &mulshareeq(const RegAS &rhs) {
+    RegAS &mulshareeq(const RegAS &rhs) {
         *this *= rhs.ashare;
         return *this;
     }
@@ -157,7 +157,7 @@ struct RegAS {
         return res;
     }
 
-    inline void dump() const {
+    void dump() const {
         printf("%016lx", ashare);
     }
 };
@@ -171,39 +171,39 @@ inline value_t combine(const RegAS &A, const RegAS &B,
     return (A.ashare + B.ashare) & mask;
 }
 
-// The type of a register holding a bit share
+// The type of register holding a bit-share
 struct RegBS {
     bit_t bshare;
 
     RegBS() : bshare(0) {}
 
     inline bit_t share() const { return bshare; }
-    inline void set(bit_t s) { bshare = s; }
+    void set(bit_t s) { bshare = s; }
 
     // Set each side's share to a random bit
-    inline void randomize() {
+    void randomize() {
         unsigned char randb;
         arc4random_buf(&randb, sizeof(randb));
         bshare = randb & 1;
     }
 
-    inline RegBS &operator^=(const RegBS &rhs) {
+    RegBS &operator^=(const RegBS &rhs) {
         this->bshare ^= rhs.bshare;
         return *this;
     }
 
-    inline RegBS operator^(const RegBS &rhs) const {
+    RegBS operator^(const RegBS &rhs) const {
         RegBS res = *this;
         res ^= rhs;
         return res;
     }
 
-    inline RegBS &operator^=(const bit_t &rhs) {
+    RegBS &operator^=(const bit_t &rhs) {
         this->bshare ^= rhs;
         return *this;
     }
 
-    inline RegBS operator^(const bit_t &rhs) const {
+    RegBS operator^(const bit_t &rhs) const {
         RegBS res = *this;
         res ^= rhs;
         return res;
@@ -303,7 +303,7 @@ struct RegXS {
         return res;
     }
 
-    // Bit shifting and bit extraction
+    // Bit shifting and bit-extraction
 
     RegXS &operator<<=(nbits_t shift) {
         this->xshare <<= shift;
@@ -381,12 +381,12 @@ struct prac_basic_Reg_S : prac_template_false
 template<>
 struct prac_basic_Reg_S<RegAS>: prac_template_true
 {
-    static const bool value = true;
+    static constexpr bool value = true;
 };
 template<>
 struct prac_basic_Reg_S<RegXS>: prac_template_true
 {
-    static const bool value = true;
+    static constexpr bool value = true;
 };
 
 // Some useful operations on tuples, vectors, and arrays of the above
@@ -485,7 +485,7 @@ std::tuple<std::array<T,N>,std::array<T,N>> operator*(
 }
 
 template <typename S, size_t N>
-inline std::array<value_t,N> combine(const std::array<S,N> &A,
+std::array<value_t,N> combine(const std::array<S,N> &A,
         const std::array<S,N> &B,
         nbits_t nbits = VALUE_BITS) {
     std::array<value_t,N> res;
@@ -496,7 +496,7 @@ inline std::array<value_t,N> combine(const std::array<S,N> &A,
 }
 
 template <typename S, size_t N>
-inline std::tuple<std::array<value_t,N>,std::array<value_t,N>>
+std::tuple<std::array<value_t,N>,std::array<value_t,N>>
     combine(const std::tuple<std::array<S,N>,std::array<S,N>> &A,
         const std::tuple<std::array<S,N>,std::array<S,N>> &B,
         nbits_t nbits = VALUE_BITS) {
@@ -624,7 +624,7 @@ inline std::vector<RegBS> operator-(const std::vector<RegBS> &A)
 }
 
 template <size_t N>
-inline std::vector<RegAS> operator-(const std::array<RegAS,N> &A)
+std::vector<RegAS> operator-(const std::array<RegAS,N> &A)
 {
     std::vector<RegAS> res;
     for (const auto &v : A) {
@@ -634,19 +634,19 @@ inline std::vector<RegAS> operator-(const std::array<RegAS,N> &A)
 }
 
 template <size_t N>
-inline std::array<RegXS,N> operator-(const std::array<RegXS,N> &A)
+std::array<RegXS,N> operator-(const std::array<RegXS,N> &A)
 {
     return A;
 }
 
 template <size_t N>
-inline std::array<RegBS,N> operator-(const std::array<RegBS,N> &A)
+std::array<RegBS,N> operator-(const std::array<RegBS,N> &A)
 {
     return A;
 }
 
 template <typename S, size_t N>
-inline std::array<S,N> &operator+=(std::array<S,N> &A, const std::array<S,N> &B)
+std::array<S,N> &operator+=(std::array<S,N> &A, const std::array<S,N> &B)
 {
     for (size_t i=0;i<N;++i) {
         A[i] += B[i];
@@ -655,7 +655,7 @@ inline std::array<S,N> &operator+=(std::array<S,N> &A, const std::array<S,N> &B)
 }
 
 template <typename S, size_t N>
-inline std::array<S,N> &operator-=(std::array<S,N> &A, const std::array<S,N> &B)
+std::array<S,N> &operator-=(std::array<S,N> &A, const std::array<S,N> &B)
 {
     for (size_t i=0;i<N;++i) {
         A[i] -= B[i];
@@ -664,7 +664,7 @@ inline std::array<S,N> &operator-=(std::array<S,N> &A, const std::array<S,N> &B)
 }
 
 template <typename S, size_t N>
-inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
+std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 {
     for (size_t i=0;i<N;++i) {
         A[i] ^= B[i];
@@ -674,7 +674,7 @@ inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 
 // XOR the bit B into the low bit of A
 template <typename S, size_t N>
-inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
+std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 {
 #if VALUE_BITS == 64
     A[0] ^= lsb128_mask[B];
@@ -685,7 +685,7 @@ inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 }
 
 template <typename S, size_t N>
-inline std::tuple<std::array<value_t,N>,std::array<value_t,N>,std::array<value_t,N>>
+std::tuple<std::array<value_t,N>,std::array<value_t,N>,std::array<value_t,N>>
     combine(
         const std::tuple<std::array<S,N>,std::array<S,N>,std::array<S,N>> &A,
         const std::tuple<std::array<S,N>,std::array<S,N>,std::array<S,N>> &B,
@@ -703,7 +703,8 @@ inline std::tuple<std::array<value_t,N>,std::array<value_t,N>,std::array<value_t
 // places for this value to be at most 32.
 
 #ifndef ADDRESS_MAX_BITS
-#define ADDRESS_MAX_BITS 128
+// important: ADDRESS_MAX_BITS can be set to a custom value, for testing purposes, however, it is set to VALUE_BITS
+#define ADDRESS_MAX_BITS VALUE_BITS  // sets ADDRESS_MAX_BITS to the value of VALUE_BITS thus adjusting it automatically
 #endif
 
 // Addresses of MPC secret-shared memory are of this type
