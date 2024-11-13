@@ -177,3 +177,8 @@ When you're all done:
 
   - `./stop-docker`
     - Remember this will lose anything you've saved on the docker filesystem, most notably any precomputed resources.
+
+## Contribution
+
+Adding 128, 256, and 512 bit implementations to the already existing 64-bit implementation. The chosen value for the bits can be adjusted by setting the `-DVALUE_BITS` flag in the makefile to the wanted value.
+No flag in the makefile will set `VALUE_BITS` (and all other values derived from it) to the default value (currently 128 for testing purposes).

@@ -13,15 +13,13 @@
 
 // The number of bits in an MPC secret-shared memory word
 
-#ifndef VALUE_BITS
+#ifndef VALUE_BITS // can be set in the makefile via -DVALUE_BITS=x, otherwise will be set to default value of 128
 #define VALUE_BITS 128
 #endif
 
 // Values in MPC secret-shared memory are of this type.
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
-
-//TODO Fallunterscheidung damit VALUE_BITS zum Ausführungsbeginn erst festgelegt wird anstatt Hardcode
 
 #if VALUE_BITS == 256
 using value_t = boost::multiprecision::uint256_t;
