@@ -764,7 +764,7 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 #if VALUE_BITS == 64
     A ^= lsb128_mask[B];
 #elif VALUE_BITS == 128
-    A ^= lsb256_mask[B];
+    A = _mm256_xor_si256(A, lsb256_mask[B]);
 #endif
     return A;
 }

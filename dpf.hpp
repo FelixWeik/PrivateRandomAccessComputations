@@ -74,10 +74,11 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
         bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
 #if VALUE_BITS == 64
         DPFnode CWR = CW ^ lsb128_mask[cfbit];
+        prgout ^= whichchild ? CWR : CW;
 #else //TODO only covered 128-bit case here => add more if needed
-        DPFnode CWR = CW ^ lsb256_mask[cfbit];
+        DPFnode CWR = _mm256_xor_si256(CW, lsb256_mask[cfbit]);
+        prgout = _mm256_xor_si256(prgout, whichchild ? CWR : CW);  // xors the child with the given correction word (includes, whether used or not)
 #endif
-        prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;
 }

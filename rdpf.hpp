@@ -18,7 +18,7 @@
 // it's the same memory location.  The same RDPF can also be configured
 // to allow for WIDTH independent updates; if you otherwise would try to
 // reuse the same RDPF for multiple updates of the same memory location,
-// you would leak the difference between the update _values_.  Typically
+// you would leak the difference between the update _values_. Typically,
 // WIDTH=1, since most RDPFs are not reused at all.
 //
 // We implement this by have a "wide" LeafNode type that can store one
@@ -40,7 +40,7 @@ struct RDPF : public DPF {
     // The number of 128-bit leaf node entries you need to get 1 unit
     // value and WIDTH scaled values (each is 64 bits)
     static const nbits_t LWIDTH = 1 + (WIDTH/2);
-    using LeafNode = std::array<DPFnode,LWIDTH>;  // DPFNode wird aufgeteilt => 64bit für read, 64bit für write (writes WIDTH mal möglich)
+    using LeafNode = std::array<DPFnode,LWIDTH>;  // DPFNode wird aufgeteilt => jeweils VALUE_BITS/2 für read und write (writes WIDTH-mal möglich)
 
     // Information for leaf levels of the RDPF.  Normal RDPFs only have
     // one leaf level (at the bottom), but incremental RDPFs have a leaf
@@ -50,7 +50,7 @@ struct RDPF : public DPF {
         // The correction word for this leaf level
         LeafNode leaf_cw;
         // The amount we have to scale the low words of the leaf values by
-        // to get additive shares of a unit vector (value is 64-bit vector)
+        // to get additive shares of a unit vector (value is VALUE_BIT/2 vector)
         value_t unit_sum_inverse;
         // Additive share of the scaling values M_as such that the high words
         // of the WIDTH leaf values for P0 and P1 add to M_as * e_{target}
