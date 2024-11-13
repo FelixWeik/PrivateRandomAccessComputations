@@ -155,7 +155,7 @@ struct RDPF : public DPF {
 #if VALUE_BITS == 64
         value_t lowword = value_t(_mm_cvtsi128_si64x(leaf[0]));
 #elif VALUE_BITS == 128
-        value_t lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 0)));
+        auto lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 0)));
 #endif
         if (whichhalf == 1) {
             lowword = -lowword;
@@ -172,7 +172,7 @@ struct RDPF : public DPF {
         value_t highword =
             value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[0],8)));
         x[j++].xshare = highword;
-        for (nbits_t i=1;i<LWIDTH;++i) {
+        for (nbits_t i=1;i<LWIDTH;i++) {
             value_t lowword =
                 value_t(_mm_cvtsi128_si64x(leaf[i]));
             value_t highword =
@@ -187,10 +187,10 @@ struct RDPF : public DPF {
                    static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 1)));
         x[j++].xshare = highword;
 
-        for (nbits_t i = 1; i < LWIDTH; ++i) {
-            value_t lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 0)));
-            value_t highword = (static_cast<value_t>(_mm_cvtsi128_si64x(_mm_srli_si128(_mm256_extracti128_si256(leaf[i], 1), 8))) << 64) |
-                               static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 1)));
+        for (nbits_t i = 1; i < LWIDTH; i++) {
+            auto lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 0)));
+            value_t highword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm_srli_si128(_mm256_extracti128_si256(leaf[i], 1), 8))) << 64 |
+                            static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[i], 1)));
 
             x[j++].xshare = lowword;
             if (j < WIDTH) {
@@ -212,7 +212,7 @@ struct RDPF : public DPF {
             highword = -highword;
         }
         a[j++].ashare = highword;
-        for (nbits_t i=1;i<WIDTH;++i) {
+        for (nbits_t i = 1; i < WIDTH; i++) {
             value_t lowword =
                 value_t(_mm_cvtsi128_si64x(leaf[i]));
             value_t highword =
@@ -224,7 +224,7 @@ struct RDPF : public DPF {
             highword = -highword;
         }
         a[j++].ashare = highword;
-        for (nbits_t i=1;i<WIDTH;++i) {
+        for (nbits_t i = 1; i < WIDTH; i++) {
             auto loword_lower = _mm256_castsi256_si128(leaf[i]);
             auto loword_upper = _mm256_extracti128_si256(leaf[i], 1);
 
@@ -266,9 +266,9 @@ struct RDPFTriple {
     using Triple = std::tuple<T, T, T>;
     template <typename T>
     using WTriple = std::tuple<
-        typename std::array<T,WIDTH>,
-        typename std::array<T,WIDTH>,
-        typename std::array<T,WIDTH> >;
+        std::array<T,WIDTH>,
+        std::array<T,WIDTH>,
+        std::array<T,WIDTH> >;
 
     // The type of triples of nodes, LeafNodes, and the wide shared
     // register types
@@ -282,30 +282,30 @@ struct RDPFTriple {
     RDPF<WIDTH> dpf[3]; // this is the actual rdpf triple
 
     // The depth
-    inline nbits_t depth() const { return dpf[0].depth(); }
+    nbits_t depth() const { return dpf[0].depth(); }
 
     // Set the current depth for an incremental RDPFTriple; 0 means to
     // use maxdepth
-    inline void depth(nbits_t newdepth) {
+    void depth(nbits_t newdepth) {
         dpf[0].depth(newdepth);
         dpf[1].depth(newdepth);
         dpf[2].depth(newdepth);
     }
 
     // The seed
-    inline node get_seed() const {
+    node get_seed() const {
         return std::make_tuple(dpf[0].get_seed(), dpf[1].get_seed(),
             dpf[2].get_seed());
     }
 
     // Do we have a precomputed expansion?
-    inline bool has_expansion() const {
+    bool has_expansion() const {
         int li_index = dpf[0].maxdepth - dpf[0].curdepth;
         return dpf[0].li[li_index].expansion.size() > 0;
     }
 
     // Get an element of the expansion
-    inline LeafNode get_expansion(address_t index) const {
+    LeafNode get_expansion(address_t index) const {
         return std::make_tuple(dpf[0].get_expansion(index),
             dpf[1].get_expansion(index), dpf[2].get_expansion(index));
     }
@@ -330,14 +330,14 @@ struct RDPFTriple {
     // parameter
 
     // Only RegXS, not RegAS, indices are used with incremental RDPFs
-    inline void get_target(RegAS &target) const { target = as_target; }
-    inline void get_target(RegXS &target) const {
+    void get_target(RegAS &target) const { target = as_target; }
+    void get_target(RegXS &target) const {
         target = xs_target >> (dpf[0].maxdepth - dpf[0].curdepth);
     }
 
     // Additive share of the scaling value M_as such that the high words
     // of the leaf values for P0 and P1 add to M_as * e_{target}
-    inline void scaled_value(RegASWT &v) const {
+    void scaled_value(RegASWT &v) const {
         int li_index = dpf[0].maxdepth - dpf[0].curdepth;
         std::get<0>(v) = dpf[0].li[li_index].scaled_sum;
         std::get<1>(v) = dpf[1].li[li_index].scaled_sum;
@@ -346,7 +346,7 @@ struct RDPFTriple {
 
     // XOR share of the scaling value M_xs such that the high words
     // of the leaf values for P0 and P1 XOR to M_xs * e_{target}
-    inline void scaled_value(RegXSWT &v) const {
+    void scaled_value(RegXSWT &v) const {
         int li_index = dpf[0].maxdepth - dpf[0].curdepth;
         std::get<0>(v) = dpf[0].li[li_index].scaled_xor;
         std::get<1>(v) = dpf[1].li[li_index].scaled_xor;
@@ -354,14 +354,14 @@ struct RDPFTriple {
     }
 
     // Get the additive-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegAS,RegAS,RegAS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegAS,RegAS,RegAS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf[0].unit_as(std::get<0>(leaf));
         std::get<1>(u) = dpf[1].unit_as(std::get<1>(leaf));
         std::get<2>(u) = dpf[2].unit_as(std::get<2>(leaf));
     }
 
     // Get the bit-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegXS,RegXS,RegXS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegXS,RegXS,RegXS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf[0].unit_bs(std::get<0>(leaf));
         std::get<1>(u) = dpf[1].unit_bs(std::get<1>(leaf));
         std::get<2>(u) = dpf[2].unit_bs(std::get<2>(leaf));
@@ -370,21 +370,21 @@ struct RDPFTriple {
     // For any more complex entry type, that type will handle the conversion
     // for each DPF
     template <typename T>
-    inline void unit(std::tuple<T,T,T> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<T,T,T> &u, const LeafNode &leaf) const {
         std::get<0>(u).unit(dpf[0], std::get<0>(leaf));
         std::get<1>(u).unit(dpf[1], std::get<1>(leaf));
         std::get<2>(u).unit(dpf[2], std::get<2>(leaf));
     }
 
     // Get the additive-shared scaled vector entry from the leaf node
-    inline void scaled(RegASWT &s, const LeafNode &leaf) const {
+    void scaled(RegASWT &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf[0].scaled_as(std::get<0>(leaf));
         std::get<1>(s) = dpf[1].scaled_as(std::get<1>(leaf));
         std::get<2>(s) = dpf[2].scaled_as(std::get<2>(leaf));
     }
 
     // Get the XOR-shared scaled vector entry from the leaf node
-    inline void scaled(RegXSWT &s, const LeafNode &leaf) const {
+    void scaled(RegXSWT &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf[0].scaled_xs(std::get<0>(leaf));
         std::get<1>(s) = dpf[1].scaled_xs(std::get<1>(leaf));
         std::get<2>(s) = dpf[2].scaled_xs(std::get<2>(leaf));
@@ -412,28 +412,28 @@ struct RDPFPair {
     RDPFPair() = default;
 
     // The depth
-    inline nbits_t depth() const { return dpf[0].depth(); }
+    [[nodiscard]] nbits_t depth() const { return dpf[0].depth(); }
 
     // Set the current depth for an incremental RDPFPair; 0 means to use
     // maxdepth
-    inline void depth(nbits_t newdepth) {
+    void depth(nbits_t newdepth) {
         dpf[0].depth(newdepth);
         dpf[1].depth(newdepth);
     }
 
     // The seed
-    inline node get_seed() const {
+    [[nodiscard]] node get_seed() const {
         return std::make_tuple(dpf[0].get_seed(), dpf[1].get_seed());
     }
 
     // Do we have a precomputed expansion?
-    inline bool has_expansion() const {
+    [[nodiscard]] bool has_expansion() const {
         int li_index = dpf[0].maxdepth - dpf[0].curdepth;
         return dpf[0].li[li_index].expansion.size() > 0;
     }
 
     // Get an element of the expansion
-    inline LeafNode get_expansion(address_t index) const {
+    LeafNode get_expansion(address_t index) const {
         return std::make_tuple(dpf[0].get_expansion(index),
             dpf[1].get_expansion(index));
     }
@@ -452,26 +452,26 @@ struct RDPFPair {
 
     // Additive share of the scaling value M_as such that the high words
     // of the leaf values for P0 and P1 add to M_as * e_{target}
-    inline void scaled_value(RegASWP &v) const {
+    void scaled_value(RegASWP &v) const {
         std::get<0>(v) = dpf[0].scaled_sum;
         std::get<1>(v) = dpf[1].scaled_sum;
     }
 
     // XOR share of the scaling value M_xs such that the high words
     // of the leaf values for P0 and P1 XOR to M_xs * e_{target}
-    inline void scaled_value(RegXSWP &v) const {
+    void scaled_value(RegXSWP &v) const {
         std::get<0>(v) = dpf[0].scaled_xor;
         std::get<1>(v) = dpf[1].scaled_xor;
     }
 
     // Get the additive-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegAS,RegAS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegAS,RegAS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf[0].unit_as(std::get<0>(leaf));
         std::get<1>(u) = dpf[1].unit_as(std::get<1>(leaf));
     }
 
     // Get the bit-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegXS,RegXS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegXS,RegXS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf[0].unit_bs(std::get<0>(leaf));
         std::get<1>(u) = dpf[1].unit_bs(std::get<1>(leaf));
     }
@@ -479,19 +479,19 @@ struct RDPFPair {
     // For any more complex entry type, that type will handle the conversion
     // for each DPF
     template <typename T>
-    inline void unit(std::tuple<T,T> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<T,T> &u, const LeafNode &leaf) const {
         std::get<0>(u).unit(dpf[0], std::get<0>(leaf));
         std::get<1>(u).unit(dpf[1], std::get<1>(leaf));
     }
 
     // Get the additive-shared scaled vector entry from the leaf node
-    inline void scaled(RegASWP &s, const LeafNode &leaf) const {
+    void scaled(RegASWP &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf[0].scaled_as(std::get<0>(leaf));
         std::get<1>(s) = dpf[1].scaled_as(std::get<1>(leaf));
     }
 
     // Get the XOR-shared scaled vector entry from the leaf node
-    inline void scaled(RegXSWP &s, const LeafNode &leaf) const {
+    void scaled(RegXSWP &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf[0].scaled_xs(std::get<0>(leaf));
         std::get<1>(s) = dpf[1].scaled_xs(std::get<1>(leaf));
     }
@@ -529,28 +529,28 @@ struct RDPF2of3 {
         dpf0(trip.dpf[which0]), dpf1(trip.dpf[which1]) {}
 
     // The depth
-    inline nbits_t depth() const { return dpf0.depth(); }
+    [[nodiscard]] nbits_t depth() const { return dpf0.depth(); }
 
     // Set the current depth for an incremental RDPFPair; 0 means to use
     // maxdepth
-    inline void depth(nbits_t newdepth) {
+    void depth(nbits_t newdepth) {
         dpf0.depth(newdepth);
         dpf1.depth(newdepth);
     }
 
     // The seed
-    inline node get_seed() const {
+    [[nodiscard]] node get_seed() const {
         return std::make_tuple(dpf0.get_seed(), dpf1.get_seed());
     }
 
     // Do we have a precomputed expansion?
-    inline bool has_expansion() const {
+    [[nodiscard]] bool has_expansion() const {
         int li_index = dpf0.maxdepth - dpf0.curdepth;
         return dpf0.li[li_index].expansion.size() > 0;
     }
 
     // Get an element of the expansion
-    inline LeafNode get_expansion(address_t index) const {
+    LeafNode get_expansion(address_t index) const {
         return std::make_tuple(dpf0.get_expansion(index),
             dpf1.get_expansion(index));
     }
@@ -569,26 +569,26 @@ struct RDPF2of3 {
 
     // Additive share of the scaling value M_as such that the high words
     // of the leaf values for P0 and P1 add to M_as * e_{target}
-    inline void scaled_value(RegASWP &v) const {
+    void scaled_value(RegASWP &v) const {
         std::get<0>(v) = dpf0.scaled_sum;
         std::get<1>(v) = dpf1.scaled_sum;
     }
 
     // XOR share of the scaling value M_xs such that the high words
     // of the leaf values for P0 and P1 XOR to M_xs * e_{target}
-    inline void scaled_value(RegXSWP &v) const {
+    void scaled_value(RegXSWP &v) const {
         std::get<0>(v) = dpf0.scaled_xor;
         std::get<1>(v) = dpf1.scaled_xor;
     }
 
     // Get the additive-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegAS,RegAS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegAS,RegAS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf0.unit_as(std::get<0>(leaf));
         std::get<1>(u) = dpf1.unit_as(std::get<1>(leaf));
     }
 
     // Get the bit-shared unit vector entry from the leaf node
-    inline void unit(std::tuple<RegXS,RegXS> &u, const LeafNode &leaf) const {
+    void unit(std::tuple<RegXS,RegXS> &u, const LeafNode &leaf) const {
         std::get<0>(u) = dpf0.unit_bs(std::get<0>(leaf));
         std::get<1>(u) = dpf1.unit_bs(std::get<1>(leaf));
     }
@@ -602,13 +602,13 @@ struct RDPF2of3 {
     }
 
     // Get the additive-shared scaled vector entry from the leaf node
-    inline void scaled(RegASWP &s, const LeafNode &leaf) const {
+    void scaled(RegASWP &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf0.scaled_as(std::get<0>(leaf));
         std::get<1>(s) = dpf1.scaled_as(std::get<1>(leaf));
     }
 
     // Get the XOR-shared scaled vector entry from the leaf node
-    inline void scaled(RegXSWP &s, const LeafNode &leaf) const {
+    void scaled(RegXSWP &s, const LeafNode &leaf) const {
         std::get<0>(s) = dpf0.scaled_xs(std::get<0>(leaf));
         std::get<1>(s) = dpf1.scaled_xs(std::get<1>(leaf));
     }
@@ -696,7 +696,7 @@ struct ParallelEval {
     //         accum_t += value_i
     //     total += accum_t
     template <typename V, typename W>
-    inline V reduce(V init, W process);
+    V reduce(V init, W process);
 };
 
 #include "rdpf.tcc"

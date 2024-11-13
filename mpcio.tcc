@@ -38,7 +38,9 @@ void PreCompStorage<T,N>::get(T& nextval)
 {
     storage >> nextval;
     if (!storage.good()) {
-        std::cerr << "Failed to read precomputed value from " << name;
+        std::cerr << "Failed to read precomputed value from " << name << std::endl;
+        std::cout << "stream rdstate: "
+         << storage.rdstate() << std::endl;
         if (depth) {
             std::cerr << (int)depth;
         }
