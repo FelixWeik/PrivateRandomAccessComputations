@@ -46,7 +46,7 @@ inline __m128i xor_if(const __m128i & block1, const __m128i & block2, bool flag)
 }
 
 template <size_t LWIDTH>
-inline std::array<__m128i,LWIDTH> xor_if(
+std::array<__m128i,LWIDTH> xor_if(
     const std::array<__m128i,LWIDTH> & block1,
     const std::array<__m128i,LWIDTH> & block2, bool flag)
 {
@@ -147,22 +147,22 @@ static const __m256i bool256_mask[2] = {
 };
 
 static const __m256i lsb256_mask[4] = {
-    _mm256_setzero_si256(),                                   // 0b00...0000
+    _mm256_setzero_si256(),                                            // 0b00...0000
     _mm256_set_epi64x(0, 0, 0, 1),                            // 0b00...0001
     _mm256_set_epi64x(0, 0, 0, 2),                            // 0b00...0010
     _mm256_set_epi64x(0, 0, 0, 3)                             // 0b00...0011
 };
 
 static const __m256i lsb256_mask_inv[4] = {
-    _mm256_set1_epi8(-1),                                     // 0b11...1111
+    _mm256_set1_epi8(-1),                                            // 0b11...1111
     _mm256_set_epi64x(-1, -1, -1, -2),                        // 0b11...1110
     _mm256_set_epi64x(-1, -1, -1, -3),                        // 0b11...1101
     _mm256_set_epi64x(-1, -1, -1, -4)                         // 0b11...1100
 };
 
 static const __m256i if256_mask[2] = {
-    _mm256_setzero_si256(),                                   // 0b00...0000
-    _mm256_set1_epi8(-1)                                      // 0b11...1111
+    _mm256_setzero_si256(),                                            // 0b00...0000
+    _mm256_set1_epi8(-1)                                             // 0b11...1111
 };
 
 inline __m256i xor_if(const __m256i & block1, const __m256i & block2, __m256i flag)
@@ -176,7 +176,7 @@ inline __m256i xor_if(const __m256i & block1, const __m256i & block2, bool flag)
 }
 
 template <size_t LWIDTH>
-inline std::array<__m256i, LWIDTH> xor_if(
+std::array<__m256i, LWIDTH> xor_if(
     const std::array<__m256i, LWIDTH> & block1,
     const std::array<__m256i, LWIDTH> & block2, bool flag)
 {
@@ -194,7 +194,7 @@ inline uint8_t get_lsb(const __m256i & block, uint8_t bits = 0b01)
 }
 
 template <size_t LWIDTH>
-inline uint8_t get_lsb(const std::array<__m256i, LWIDTH> & block)
+uint8_t get_lsb(const std::array<__m256i, LWIDTH> & block)
 {
     return get_lsb(block[0]);
 }
@@ -209,52 +209,78 @@ inline __m256i set_lsb(const __m256i & block, const bool val = true)
     return _mm256_or_si256(clear_lsb(block, 0b01), lsb256_mask[val ? 0b01 : 0b00]);
 }
 
-// Berechnung der Parität (Anzahl der gesetzten Bits in block ist ungerade/even)
-inline uint8_t parity(const __m256i & block)
-{
-    uint64_t low = uint64_t(_mm256_extract_epi64(block, 0));
-    uint64_t high = uint64_t(_mm256_extract_epi64(block, 1));
-    return ((__builtin_popcountll(low) ^ __builtin_popcountll(high)) & 1);
+inline uint8_t parity(const __m256i & block) {
+    auto low0 = uint64_t(_mm256_extract_epi64(block, 0));
+    auto low1 = uint64_t(_mm256_extract_epi64(block, 1));
+    auto high0 = uint64_t(_mm256_extract_epi64(block, 2));
+    auto high1 = uint64_t(_mm256_extract_epi64(block, 3));
+
+    return ((__builtin_popcountll(low0) ^ __builtin_popcountll(low1) ^
+             __builtin_popcountll(high0) ^ __builtin_popcountll(high1)) & 1);
 }
 
-inline uint8_t parity_above(const __m256i & block, uint8_t position)
-{
-    uint64_t high = uint64_t(_mm256_extract_epi64(block, 3));
+inline uint8_t parity_above(const __m256i &block, uint8_t position) {
+    __m128i low0 = _mm256_castsi256_si128(block);
+    __m128i high0 = _mm256_extracti128_si256(block, 1);
+
     if (position >= 128) {
-        uint64_t mask = (uint64_t(1) << (position - 128)) | ((uint64_t(1) << (position - 128)) - 1);
+        uint64_t mask = (uint64_t(1) << (position - 128));
+        mask |= (mask - 1);
         mask = ~mask;
-        return (__builtin_popcountll(high & mask) & 1);
+
+        return (__builtin_popcountll(uint64_t(_mm_cvtsi128_si64x(high0)) & mask) & 1);
     } else {
-        uint64_t low = uint64_t(_mm256_extract_epi64(block, 1));
-        uint64_t mask = (uint64_t(1) << position) | ((uint64_t(1) << position) - 1);
+        uint64_t mask = (uint64_t(1) << position);
+        mask |= (mask - 1);
         mask = ~mask;
-        return ((__builtin_popcountll(high) + __builtin_popcountll(low & mask)) & 1);
+
+        auto low = uint64_t(_mm_cvtsi128_si64x(low0));
+        auto high = uint64_t(_mm_cvtsi128_si64x(high0));
+
+        return (__builtin_popcountll(high) + __builtin_popcountll(low & mask)) & 1;
     }
 }
 
-inline uint8_t parity_below(const __m256i & block, uint8_t position)
+inline uint8_t parity_below(const __m256i &block, uint8_t position)
 {
-    uint64_t low = uint64_t(_mm256_extract_epi64(block, 0));
+    auto low0 = uint64_t(_mm256_extract_epi64(block, 0));
+    auto low1 = uint64_t(_mm256_extract_epi64(block, 1));
+    auto high0 = uint64_t(_mm256_extract_epi64(block, 2));
+    auto high1 = uint64_t(_mm256_extract_epi64(block, 3));
+
     if (position >= 128) {
-        uint64_t high = uint64_t(_mm256_extract_epi64(block, 3));
         uint64_t mask = (uint64_t(1) << (position - 128)) - 1;
-        return ((__builtin_popcountll(low) + __builtin_popcountll(high & mask)) & 1);
+        return ((__builtin_popcountll(low1) +
+                 __builtin_popcountll(high0 & mask) +
+                 __builtin_popcountll(high1)) & 1);
+    } else if (position >= 64) {
+        uint64_t mask = (uint64_t(1) << (position - 64)) - 1;
+        return ((__builtin_popcountll(low0) +
+                 __builtin_popcountll(low1 & mask)) & 1);
     } else {
         uint64_t mask = (uint64_t(1) << position) - 1;
-        return (__builtin_popcountll(low & mask) & 1);
+        return (__builtin_popcountll(low0 & mask) & 1);
     }
 }
 
-inline uint8_t bit_at(const __m256i & block, uint8_t position)
+
+inline uint8_t bit_at(const __m256i &block, uint8_t position)
 {
-    if (position >= 128) {
-        uint64_t high = uint64_t(_mm256_extract_epi64(block, 3));
-        return !!(high & (uint64_t(1) << (position - 128)));
+    if (position >= 192) {
+        auto high1 = static_cast<uint64_t>(_mm256_extract_epi64(block, 3));
+        return !!(high1 & (static_cast<uint64_t>(1) << (position - 192)));
+    } else if (position >= 128) {
+        auto high0 = static_cast<uint64_t>(_mm256_extract_epi64(block, 2));
+        return !!(high0 & (static_cast<uint64_t>(1) << (position - 128)));
+    } else if (position >= 64) {
+        auto low1 = static_cast<uint64_t>(_mm256_extract_epi64(block, 1));
+        return !!(low1 & (static_cast<uint64_t>(1) << (position - 64)));
     } else {
-        uint64_t low = uint64_t(_mm256_extract_epi64(block, 0));
-        return !!(low & (uint64_t(1) << position));
+        auto low0 = static_cast<uint64_t>(_mm256_extract_epi64(block, 0));
+        return !!(low0 & (static_cast<uint64_t>(1) << position));
     }
 }
+
 
 #endif
 #endif
