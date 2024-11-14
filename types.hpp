@@ -24,7 +24,7 @@
 #if VALUE_BITS == 256
 using value_t = boost::multiprecision::uint256_t;
 #elif VALUE_BITS == 128
-using value_t = __uint128_t;
+using value_t = unsigned __int128;
 #elif VALUE_BITS == 64
 using value_t = uint64_t;
 #elif VALUE_BITS == 32

@@ -155,7 +155,9 @@ struct RDPF : public DPF {
 #if VALUE_BITS == 64
         value_t lowword = value_t(_mm_cvtsi128_si64x(leaf[0]));
 #elif VALUE_BITS == 128
-        auto lowword = static_cast<value_t>(_mm_cvtsi128_si64x(_mm256_extracti128_si256(leaf[0], 0)));
+        __m128i low = _mm256_extracti128_si256(leaf[0], 0);
+        value_t lowword = static_cast<value_t>(_mm_cvtsi128_si64x(low)) << 64 |
+            _mm_cvtsi128_si64(_mm_srli_si128(low, 8));
 #endif
         if (whichhalf == 1) {
             lowword = -lowword;
