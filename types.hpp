@@ -5,6 +5,8 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <iostream>
+#include <ostream>
 #include <x86intrin.h>  // SSE and AVX intrinsics
 #include <bsd/stdlib.h> // arc4random_buf
 #include <boost/multiprecision/cpp_int.hpp>
@@ -69,8 +71,16 @@ struct RegAS {
     // Set each side's share to a random value nbits bits long
     void randomize(size_t nbits = VALUE_BITS) {
         value_t mask = MASKBITS(nbits);
-        arc4random_buf(&ashare, sizeof(ashare));
+        arc4random_buf(&ashare, sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
         ashare &= mask;
+    }
+
+    void test(RegAS astest) {
+        std::cout << "==== TEST RegAS ====" << std::endl;
+        std::cout << "test_share = " << astest.ashare << std::endl;
+        bool res = astest.ashare == this->ashare;
+        std::cout << "equal = " << res << std::endl;
+        std::cout << "==== TEST RegAS ====" << std::endl;
     }
 
     RegAS &operator+=(const RegAS &rhs) {
@@ -106,18 +116,18 @@ struct RegAS {
         return *this;
     }
 
-    inline RegAS operator*(value_t rhs) const {
+    RegAS operator*(value_t rhs) const {
         RegAS res = *this;
         res *= rhs;
         return res;
     }
 
-    inline RegAS &operator<<=(nbits_t shift) {
+    RegAS &operator<<=(nbits_t shift) {
         this->ashare <<= shift;
         return *this;
     }
 
-    inline RegAS operator<<(nbits_t shift) const {
+    RegAS operator<<(nbits_t shift) const {
         RegAS res = *this;
         res <<= shift;
         return res;
@@ -225,6 +235,14 @@ struct RegXS {
         value_t mask = MASKBITS(nbits);
         arc4random_buf(&xshare, sizeof(xshare));
         xshare &= mask;
+    }
+
+    void test(RegXS xreg) const {
+        std::cout << "==== TEST RegXS ====" << std::endl;
+        std::cout << "test_share = " << xreg.xshare << std::endl;
+        bool res = xreg.xshare == this->xshare;
+        std::cout << "equal = " << res << std::endl;
+        std::cout << "==== TEST RegXS ====" << std::endl;
     }
 
     // For RegXS, + and * should be interpreted bitwise; that is, + is
@@ -335,11 +353,12 @@ struct RegXS {
 
     // Multiply by the local share of the argument, not multiplcation of
     // two shared values (two versions)
-    inline RegXS &mulshareeq(const RegXS &rhs) {
+     RegXS &mulshareeq(const RegXS &rhs) {
         *this *= rhs.xshare;
         return *this;
     }
-    RegXS mulshare(const RegXS &rhs) const {
+
+    inline RegXS mulshare(const RegXS &rhs) const {
         RegXS res = *this;
         res *= rhs.xshare;
         return res;
