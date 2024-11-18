@@ -803,12 +803,18 @@ static void duoram(MPCIO &mpcio,
             list_indices.push_back(next_index);
             prev_index = next_index;
         }
+        T A_tmp = A[prev_index];  // has type Duoram<RegAS>::Shape::MemRefS<RegAS, RegAS, std::nullopt_t, Duoram<RegAS>::Flat, (unsigned char)1>
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
         std::cout << "\n===== DEPENDENT READS =====\n";  // dependent = read n can only be started after n-1 finished
         mpcio.reset_stats();
         tio.reset_lamport();
+
+        // Comparing functionality for testing
+        auto A_valuet = static_cast<T>(A[prev_index]);
+        A_tmp.test(A_valuet);
+
         // Read the linked list starting with prev_index
         T cur_index = prev_index;
         for (int i=0;i<items;++i) {
