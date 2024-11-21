@@ -77,7 +77,7 @@ struct RegAS {
 
     void test(RegAS astest) {
         std::cout << "==== TEST RegAS ====" << std::endl;
-        std::cout << "test_share = " << astest.ashare << std::endl;
+        // std::cout << "test_share = " << astest.ashare << std::endl;
         bool res = astest.ashare == this->ashare;
         std::cout << "equal = " << res << std::endl;
         std::cout << "==== TEST RegAS ====" << std::endl;
@@ -239,7 +239,7 @@ struct RegXS {
 
     void test(RegXS xreg) const {
         std::cout << "==== TEST RegXS ====" << std::endl;
-        std::cout << "test_share = " << xreg.xshare << std::endl;
+        // std::cout << "test_share = " << xreg.xshare << std::endl;
         bool res = xreg.xshare == this->xshare;
         std::cout << "equal = " << res << std::endl;
         std::cout << "==== TEST RegXS ====" << std::endl;

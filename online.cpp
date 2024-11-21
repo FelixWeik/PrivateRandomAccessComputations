@@ -831,6 +831,9 @@ static void duoram(MPCIO &mpcio,
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
+        A_valuet = static_cast<T>(A[prev_index]);
+        A_tmp.test(A_valuet);
+
         std::cout << "\n===== INDEPENDENT UPDATES =====\n";
         mpcio.reset_stats();
         tio.reset_lamport();
@@ -863,6 +866,8 @@ static void duoram(MPCIO &mpcio,
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
+        A_tmp.test(A_valuet);
+
         std::cout << "\n===== DEPENDENT INTERLEAVED =====\n";
         mpcio.reset_stats();
         tio.reset_lamport();
@@ -878,6 +883,9 @@ static void duoram(MPCIO &mpcio,
         }
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
+
+        A_valuet = static_cast<T>(A[prev_index]);
+        A_tmp.test(A_valuet);
 
 
         std::cout << "\n";
