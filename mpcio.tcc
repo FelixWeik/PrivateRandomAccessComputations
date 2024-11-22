@@ -32,12 +32,26 @@ void PreCompStorage<T,N>::init(unsigned player, ProcessingMode mode,
     // try to use a value for which we don't have a precomputed file.
     count = 0;
 }
+// Following two functions are used for debugging purposes
+#include <execinfo.h>
+inline void printBacktraceSelfImplemented() {
+    std::cout << "==== Debugging ====\n";
+    void *array[10];
+    size_t size = backtrace(array, 10);
+
+    std::cout << "Call Stack:\n";
+    backtrace_symbols_fd(array, size, STDERR_FILENO);  // anaylze the callstack with addr2line -e ./prac
+    std::cout << "End Call Stack" << std::endl;
+    std::cout << "========\n";
+}
+// end of debugging functions
 
 template<typename T, typename N>
 void PreCompStorage<T,N>::get(T& nextval)
 {
     storage >> nextval;
     if (!storage.good()) {
+        printBacktraceSelfImplemented();
         std::cerr << "Failed to read precomputed value from " << name << std::endl;
         std::cout << "stream rdstate: "
          << storage.rdstate() << std::endl;
@@ -101,7 +115,7 @@ RDPFPair<WIDTH> MPCTIO::rdpfpair(yield_t &yield, nbits_t depth,
     if (mpcio.mode == MODE_ONLINE) {
         if (incremental) {
             std::get<WIDTH-1>(mpcsrvio.irdpfpairs)
-                [thread_num][depth-1].get(val);
+                [thread_num][depth-1].get(val); // TODO Hier könnte der Fehler im Aufruf liegen
         } else {
             std::get<WIDTH-1>(mpcsrvio.rdpfpairs)
                 [thread_num][depth-1].get(val);

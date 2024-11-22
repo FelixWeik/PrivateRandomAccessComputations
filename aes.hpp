@@ -7,6 +7,11 @@
 
 #include <wmmintrin.h>
 
+/* This implementation is intended to server 64-bit values
+ * Goal of the extension is to allow arbitrary bit sizes
+ * Therefore, multiples of 64-bit will just be reused and concatenated
+ * the implementation will stay the same, it will just be executed multiple times
+ */
 using AESkey = __m128i[11];
 
 static __m128i AES_128_ASSIST (__m128i temp1, __m128i temp2)

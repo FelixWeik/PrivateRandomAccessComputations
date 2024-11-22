@@ -1,7 +1,7 @@
 all: prac
 
-CXXFLAGS=-march=native -std=c++17 -Wall -Wno-ignored-attributes -ggdb -O3 -DVALUE_BITS=128
-LDFLAGS=-ggdb
+CXXFLAGS=-march=native -std=c++17 -Wall -Wno-ignored-attributes -ggdb -O3 -g -O0 -DVALUE_BITS=128
+LDFLAGS=-ggdb -g -O0
 LDLIBS=-lbsd -lboost_system -lboost_context -lboost_chrono -lboost_thread -lpthread
 
 # Enable this to have all communication logged to stdout
