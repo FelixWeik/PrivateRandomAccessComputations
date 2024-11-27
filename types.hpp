@@ -18,6 +18,15 @@
 #define VALUE_BITS 64
 #endif
 
+#ifndef INPUT_BITS
+#define INPUT_BITS 64
+#endif
+
+// number n of n * 64 = given_datasize => defines how many entries each input value gets
+#ifndef INPUT_PARTITION
+#define INPUT_PARTITION (INPUT_BITS/VALUE_BITS)
+#endif
+
 // Values in MPC secret-shared memory are of this type.
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
@@ -64,7 +73,7 @@ struct RegAS {
         ashare &= mask;
     }
 
-    void test(RegAS astest) {
+    void test(RegAS astest) const {
         std::cout << "==== TEST RegAS ====" << std::endl;
         std::cout << "test_share = " << astest.ashare << std::endl;
         bool res = astest.ashare == this->ashare;
@@ -366,13 +375,234 @@ struct RegXS {
 };
 
 inline value_t combine(const RegXS &A, const RegXS &B,
-        nbits_t nbits = VALUE_BITS) {
+        const nbits_t nbits = VALUE_BITS) {
     value_t mask = ~0;
     if (nbits < VALUE_BITS) {
         mask = (value_t(1)<<nbits)-1;
     }
     return (A.xshare ^ B.xshare) & mask;
 }
+
+//TODO: repräsentiert man hier nur die Message M und wie und wo generiert man daraus den Index?
+
+// Represents an INPUT_PARTITION multiple of RegAS
+struct BigAS {
+    RegAS input[INPUT_PARTITION];
+
+    BigAS() {
+        for (auto & i : input) {
+            i.set(0);
+        }
+    }
+
+    explicit BigAS(const RegAS* input) {
+        for (size_t i=0;i<INPUT_PARTITION;++i) {
+            this->input[i] = input[i];
+        }
+    }
+
+    RegAS* share() {
+        return input;
+    }
+
+    void randomize(const size_t nbits = VALUE_BITS) {
+        for (RegAS& i : input) {
+            i.randomize(nbits);
+        }
+    }
+
+    void test(const BigAS astest) const {
+        std::cout << "==== TEST BigAS ====" << std::endl;
+        for (int i=0; i<INPUT_PARTITION; i++) {
+            this -> input[i].test(astest.input[i]);
+        }
+        std::cout << "==== TEST BigAS ====" << std::endl;
+    }
+
+    RegAS &operator[](const size_t i) {
+        return input[i];
+    }
+
+    BigAS &operator+=(const BigAS &rhs) {
+        for (int i = 0; i < INPUT_PARTITION; i++) {
+            this->input[i] += rhs.input[i];
+        }
+        return *this;
+    }
+
+    BigAS operator+(const BigAS &rhs) const {
+        BigAS res = *this;
+        res += rhs;
+        return res;
+    }
+
+    BigAS &operator-=(const BigAS &rhs) {
+        for (int i = 0; i < INPUT_PARTITION; i++) {
+            this -> input[i] -= rhs.input[i];
+        }
+        return *this;
+    }
+
+    BigAS operator-(const BigAS &rhs) const {
+        BigAS res = *this;
+        res -= rhs;
+        return res;
+    }
+
+    BigAS operator-() const {
+        BigAS res = *this;
+        for (auto & i : res.input) {
+            i = -i;
+        }
+        return res;
+    }
+
+    BigAS &operator*=(const value_t rhs) {
+        for (auto & i : this->input) {
+            i *= rhs;
+        }
+        return *this;
+    }
+
+    BigAS operator*(const BigAS &rhs, const BigAS &lhs) const {
+        BigAS res;
+        std::array<value_t, 2 * INPUT_PARTITION> product_blocks = {0};
+
+        for (size_t i = 0; i < INPUT_PARTITION; ++i) {
+            for (size_t j = 0; j < INPUT_PARTITION; ++j) {
+                product_blocks[i + j] +=
+                    static_cast<value_t>(lhs.input[i].ashare) *
+                    static_cast<value_t>(rhs.input[j].ashare);
+
+                if (product_blocks[i + j] >= (1ULL << 64)) {
+                    product_blocks[i + j + 1] += product_blocks[i + j] >> 64;
+                    product_blocks[i + j] &= 0xFFFFFFFFFFFFFFFF;
+                }
+            }
+        }
+
+        for (size_t i = 0; i < INPUT_PARTITION; ++i) {
+            res.input[i].set(product_blocks[i]);
+        }
+
+        return res;
+    }
+
+    BigAS &operator*=(const value_t &constant) {
+        value_t carry = 0;
+        for (auto & i : this->input) {
+            // Multiplizieren mit der Konstante und Carry berücksichtigen
+            value_t product = i.ashare * constant + carry;
+
+            i.set(product & 0xFFFFFFFFFFFFFFFF); // Niedrigere 64 Bits
+            carry = product >> 64; // Übertrag in den nächsten Block
+        }
+        return *this;
+    }
+
+    BigAS &operator<<=(nbits_t shift) {
+        if (shift == 0) return *this;
+        constexpr size_t BITS_PER_BLOCK = 64;
+        value_t carry = 0;
+
+        for (size_t i = 0; i < INPUT_PARTITION; ++i) {
+            value_t current = input[i].ashare;
+            input[i].ashare = (current << shift) | carry;
+            carry = (current >> (BITS_PER_BLOCK - shift));
+        }
+        return *this;
+    }
+
+    BigAS operator<<(nbits_t shift) const {
+        BigAS res = *this;
+        res <<= shift;
+        return res;
+    }
+
+    BigAS &operator>>=(nbits_t shift) {
+        if (shift == 0) return *this;
+        value_t carry = 0;
+        for (size_t i = INPUT_PARTITION; i-- > 0;) {
+            constexpr size_t BITS_PER_BLOCK = 64;
+            value_t current = input[i].ashare;
+            input[i].ashare = (current >> shift) | carry;
+            carry = (current << (BITS_PER_BLOCK - shift));
+        }
+        return *this;
+    }
+
+    BigAS operator>>(nbits_t shift) const {
+        BigAS res = *this;
+        res >>= shift;
+        return res;
+    }
+
+    BigAS &operator&=(value_t * mask) {
+        for(int i = 0; i < INPUT_PARTITION; ++i) {
+            this -> input[i] &= mask[i];
+        }
+        return *this;
+    }
+
+    BigAS operator&(value_t * mask) const {
+        BigAS res = *this;
+        res &= mask;
+        return res;
+    }
+
+    BigAS &mulshareeq(const RegAS &rhs) {
+        for (auto & i : input) {
+            i *= rhs.ashare;
+        }
+        return *this;
+    }
+
+    BigAS mulshare(const RegAS &rhs) const {
+        BigAS res = *this;
+        for (auto & i : res.input) {
+            i *= rhs.ashare;
+        }
+        return res;
+    }
+
+    void dump() const {
+        for (const RegAS &i: this -> input) {
+            i.dump();
+        }
+    }
+};
+
+inline value_t* combine(const BigAS &A, const BigAS &B, nbits_t nbits = VALUE_BITS) {
+    static value_t result[INPUT_PARTITION];
+    value_t mask = ~0;
+
+    if (nbits < VALUE_BITS) {
+        mask = (static_cast<value_t>(1) << nbits) - 1;
+    }
+
+    for (size_t i = 0; i < INPUT_PARTITION; ++i) {
+        result[i] = (A.input[i].ashare + B.input[i].ashare) & mask;
+    }
+
+    return result;
+}
+
+
+struct InputXS {
+    RegXS input[INPUT_PARTITION];
+
+    InputXS() {
+        for (auto & i : input) {
+            i.set(0);
+        }
+    };
+
+    explicit InputXS(const RegXS* input) {
+        for (size_t i=0;i<INPUT_PARTITION;++i) {
+            this->input[i] = input[i];
+        }
+    }
+};
 
 // Enable templates to specialize on just the basic types RegAS and
 // RegXS.  Technique from
