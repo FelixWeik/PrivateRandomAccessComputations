@@ -319,7 +319,7 @@ struct RegXS {
         return res;
     }
 
-    // Bit shifting and bit extraction
+    // Bit shifting and bit-extraction
 
     RegXS &operator<<=(nbits_t shift) {
         this->xshare <<= shift;
@@ -343,7 +343,7 @@ struct RegXS {
         return res;
     }
 
-    inline RegBS bitat(nbits_t pos) const {
+    RegBS bitat(nbits_t pos) const {
         RegBS bs;
         bs.set(!!(this->xshare & (value_t(1)<<pos)));
         return bs;
@@ -356,7 +356,7 @@ struct RegXS {
         return *this;
     }
 
-    inline RegXS mulshare(const RegXS &rhs) const {
+    [[nodiscard]] RegXS mulshare(const RegXS &rhs) const {
         RegXS res = *this;
         res *= rhs.xshare;
         return res;
@@ -367,7 +367,7 @@ struct RegXS {
     }
 
     // Extract a bit share of bit bitnum of the XOR-shared register
-    inline RegBS bit(nbits_t bitnum) const {
+    [[nodiscard]] RegBS bit(nbits_t bitnum) const {
         RegBS bs;
         bs.bshare = !!(xshare & (value_t(1)<<bitnum));
         return bs;
@@ -387,26 +387,26 @@ inline value_t combine(const RegXS &A, const RegXS &B,
 
 // Represents an INPUT_PARTITION multiple of RegAS
 struct BigAS {
-    RegAS input[INPUT_PARTITION];
+    RegAS ashares[INPUT_PARTITION];
 
     BigAS() {
-        for (auto & i : input) {
+        for (auto & i : ashares) {
             i.set(0);
         }
     }
 
     explicit BigAS(const RegAS* input) {
         for (size_t i=0;i<INPUT_PARTITION;++i) {
-            this->input[i] = input[i];
+            this->ashares[i] = input[i];
         }
     }
 
     RegAS* share() {
-        return input;
+        return ashares;
     }
 
     void randomize(const size_t nbits = VALUE_BITS) {
-        for (RegAS& i : input) {
+        for (RegAS& i : ashares) {
             i.randomize(nbits);
         }
     }
@@ -414,18 +414,18 @@ struct BigAS {
     void test(const BigAS astest) const {
         std::cout << "==== TEST BigAS ====" << std::endl;
         for (int i=0; i<INPUT_PARTITION; i++) {
-            this -> input[i].test(astest.input[i]);
+            this -> ashares[i].test(astest.ashares[i]);
         }
         std::cout << "==== TEST BigAS ====" << std::endl;
     }
 
     RegAS &operator[](const size_t i) {
-        return input[i];
+        return ashares[i];
     }
 
     BigAS &operator+=(const BigAS &rhs) {
         for (int i = 0; i < INPUT_PARTITION; i++) {
-            this->input[i] += rhs.input[i];
+            this->ashares[i] += rhs.ashares[i];
         }
         return *this;
     }
@@ -438,7 +438,7 @@ struct BigAS {
 
     BigAS &operator-=(const BigAS &rhs) {
         for (int i = 0; i < INPUT_PARTITION; i++) {
-            this -> input[i] -= rhs.input[i];
+            this -> ashares[i] -= rhs.ashares[i];
         }
         return *this;
     }
@@ -451,7 +451,7 @@ struct BigAS {
 
     BigAS operator-() const {
         BigAS res = *this;
-        for (auto & i : res.input) {
+        for (auto & i : res.ashares) {
             i = -i;
         }
         return res;
@@ -459,7 +459,7 @@ struct BigAS {
 
     BigAS &operator*=(const value_t &rhs) {
         value_t carry = 0;
-        for (auto & i : this->input) {
+        for (auto & i : this->ashares) {
             value_t product = i.ashare * rhs + carry;
 
             i.set(product & 0xFFFFFFFFFFFFFFFF);
@@ -481,8 +481,8 @@ struct BigAS {
         for (size_t i = 0; i < INPUT_PARTITION; ++i) {
             for (size_t j = 0; j < INPUT_PARTITION; ++j) {
                 product_blocks[i + j] +=
-                    static_cast<value_t>(lhs.input[i].ashare) *
-                    static_cast<value_t>(rhs.input[j].ashare);
+                    static_cast<value_t>(lhs.ashares[i].ashare) *
+                    static_cast<value_t>(rhs.ashares[j].ashare);
 
                 if (product_blocks[i + j] >= (1ULL << 64)) {
                     product_blocks[i + j + 1] += product_blocks[i + j] >> 64;
@@ -492,7 +492,7 @@ struct BigAS {
         }
 
         for (size_t i = 0; i < INPUT_PARTITION; ++i) {
-            res.input[i].set(product_blocks[i]);
+            res.ashares[i].set(product_blocks[i]);
         }
 
         return res;
@@ -503,7 +503,7 @@ struct BigAS {
         constexpr size_t BITS_PER_BLOCK = 64;
         value_t carry = 0;
 
-        for (auto & i : input) {
+        for (auto & i : ashares) {
             const value_t current = i.ashare;
             i.ashare = (current << shift) | carry;
             carry = (current >> (BITS_PER_BLOCK - shift));
@@ -522,8 +522,8 @@ struct BigAS {
         value_t carry = 0;
         for (size_t i = INPUT_PARTITION; i-- > 0;) {
             constexpr size_t BITS_PER_BLOCK = 64;
-            value_t current = input[i].ashare;
-            input[i].ashare = (current >> shift) | carry;
+            value_t current = ashares[i].ashare;
+            ashares[i].ashare = (current >> shift) | carry;
             carry = (current << (BITS_PER_BLOCK - shift));
         }
         return *this;
@@ -537,7 +537,7 @@ struct BigAS {
 
     BigAS &operator&=(value_t * mask) {
         for(int i = 0; i < INPUT_PARTITION; ++i) {
-            this -> input[i] &= mask[i];
+            this -> ashares[i] &= mask[i];
         }
         return *this;
     }
@@ -549,7 +549,7 @@ struct BigAS {
     }
 
     BigAS &mulshareeq(const RegAS &rhs) {
-        for (auto & i : input) {
+        for (auto & i : ashares) {
             i *= rhs.ashare;
         }
         return *this;
@@ -557,14 +557,14 @@ struct BigAS {
 
     [[nodiscard]] BigAS mulshare(const RegAS &rhs) const {
         BigAS res = *this;
-        for (auto & i : res.input) {
+        for (auto & i : res.ashares) {
             i *= rhs.ashare;
         }
         return res;
     }
 
     void dump() const {
-        for (const RegAS &i: this -> input) {
+        for (const RegAS &i: this -> ashares) {
             i.dump();
         }
     }
@@ -579,26 +579,187 @@ inline value_t* combine(const BigAS &A, const BigAS &B, nbits_t nbits = VALUE_BI
     }
 
     for (size_t i = 0; i < INPUT_PARTITION; ++i) {
-        result[i] = (A.input[i].ashare + B.input[i].ashare) & mask;
+        result[i] = (A.ashares[i].ashare + B.ashares[i].ashare) & mask;
     }
 
     return result;
 }
 
 
-struct InputXS {
-    RegXS input[INPUT_PARTITION];
+struct BigXS {
+    RegXS xshares[INPUT_PARTITION];
 
-    InputXS() {
-        for (auto & i : input) {
+    BigXS() {
+        for (auto & i : xshares) {
             i.set(0);
         }
-    };
+    }
 
-    explicit InputXS(const RegXS* input) {
-        for (size_t i=0;i<INPUT_PARTITION;++i) {
-            this->input[i] = input[i];
+    explicit BigXS(const RegXS* input) {
+        for (size_t i=0;i<INPUT_PARTITION;i++) {
+            this->xshares[i] = input[i];
         }
+    }
+
+    void randomize(size_t nbits = VALUE_BITS) {
+        for (RegXS &i : this -> xshares) {
+            i.randomize(nbits);
+        }
+    }
+
+    RegXS &operator[](value_t index) {
+        return xshares[index];
+    }
+
+    BigXS &set(value_t value, uint8_t pos = 0) { // datentyp von pos bei bedarf anpassen
+        xshares[pos].set(value);
+        return *this;
+    }
+
+    // + and * are executed bitwise => no bit-shifting necessary
+    BigXS &operator+=(const BigXS &rhs) {
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            xshares[i] += rhs.xshares[i];
+        }
+        return *this;
+    }
+
+    BigXS operator+(BigXS &rhs) const {
+        BigXS res = *this;
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            res[i] += rhs[i];
+        }
+        return res;
+    }
+
+    BigXS &operator-=(const BigXS &rhs) {
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            this -> xshares[i] -= rhs.xshares[i];
+        }
+        return *this;
+    }
+
+    BigXS operator-(BigXS &rhs) const {
+        BigXS res = *this;
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            res[i] -= rhs[i];
+        }
+        return res;
+    }
+
+    BigXS operator-() const {
+        BigXS res = *this;
+        for (auto &i: res.xshares) {
+            i = -i;
+        }
+        return res;
+    }
+
+    BigXS &operator*=(value_t rhs) {
+        for (auto & xshare : this -> xshares) {
+            xshare *= rhs;
+        }
+        return *this;
+    }
+
+    BigXS operator*(value_t *rhs) const {
+
+        BigXS res = *this;
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            res[i] *= rhs[i];
+        }
+        return res;
+    }
+
+    BigXS &operator^=(const BigXS &rhs) {
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            this -> xshares[i] ^= rhs.xshares[i];
+        }
+        return *this;
+    }
+
+    BigXS operator^(BigXS &rhs) const {
+        auto res = *this;
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            res[i] ^= rhs.xshares[i];
+        }
+        return res;
+    }
+
+    BigXS &operator&=(value_t * mask) {
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            this->xshares[i] &= mask[i];
+        }
+        return *this;
+    }
+
+    BigXS operator&(value_t * mask) const {
+        BigXS res = *this;
+        for(size_t i = 0;i<INPUT_PARTITION;i++) {
+            res[i] &= mask[i];
+        }
+        return res;
+    }
+
+    BigXS &operator<<=(nbits_t shift) {
+        for(auto &i: this -> xshares) {
+            i <<= shift;
+        }
+        return *this;
+    }
+
+    BigXS operator<<(nbits_t shift) const {
+        BigXS res = *this;
+        for(auto &i: res.xshares) {
+            i <<= shift;
+        }
+        return res;
+    }
+
+    BigXS &operator>>=(nbits_t shift) {
+        for(auto &i: this -> xshares) {
+            i >>= shift;
+        }
+        return *this;
+    }
+
+    BigXS operator>>(nbits_t shift) const {
+        BigXS res = *this;
+        for(auto &i: res.xshares) {
+            i >>= shift;
+        }
+        return res;
+    }
+
+    [[nodiscard]] RegBS bitat(nbits_t pos0, nbits_t pos1) const {
+        return xshares[pos0].bitat(pos1);
+    }
+
+    BigXS &mulshareeq(const BigXS &rhs) {
+        for (size_t i = 0;i<INPUT_PARTITION;i++) {
+            this -> xshares[i].mulshareeq(rhs.xshares[i]);
+        }
+        return *this;
+    }
+
+    [[nodiscard]] BigXS mulshare(const BigXS &rhs) const {
+        BigXS res = *this;
+        for (size_t i = 0; i < INPUT_PARTITION; i++) {
+            res[i] = res[i].mulshare(rhs.xshares[i]);
+        }
+        return res;
+    }
+
+    void dump() const {
+        std::cout << "==== BigXS ====" << std::endl;
+        for (auto &i : xshares) {
+            i.dump();
+        }
+        std::cout << "==== BigXS ====" << std::endl;
+    }
+
+    [[nodiscard]] RegBS bit(nbits_t pos, nbits_t bitnum) const {
+        return xshares[pos].bit(bitnum);
     }
 };
 
@@ -984,7 +1145,7 @@ using DPFnode = __m128i;
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
-    A ^= lsb128_mask[B];
+    A = _mm_xor_si128(A, lsb128_mask[B]);
     return A;
 }
 
