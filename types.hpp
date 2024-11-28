@@ -457,14 +457,24 @@ struct BigAS {
         return res;
     }
 
-    BigAS &operator*=(const value_t rhs) {
+    BigAS &operator*=(const value_t &rhs) {
+        value_t carry = 0;
         for (auto & i : this->input) {
-            i *= rhs;
+            value_t product = i.ashare * rhs + carry;
+
+            i.set(product & 0xFFFFFFFFFFFFFFFF);
+            carry = product >> 64;
         }
         return *this;
     }
 
-    BigAS operator*(const BigAS &rhs, const BigAS &lhs) const {
+    BigAS operator*(value_t rhs) const {
+        BigAS res = *this;
+        res *= rhs;
+        return res;
+    }
+
+    static BigAS mult(const BigAS &rhs, const BigAS &lhs) {
         BigAS res;
         std::array<value_t, 2 * INPUT_PARTITION> product_blocks = {0};
 
@@ -488,26 +498,14 @@ struct BigAS {
         return res;
     }
 
-    BigAS &operator*=(const value_t &constant) {
-        value_t carry = 0;
-        for (auto & i : this->input) {
-            // Multiplizieren mit der Konstante und Carry berücksichtigen
-            value_t product = i.ashare * constant + carry;
-
-            i.set(product & 0xFFFFFFFFFFFFFFFF); // Niedrigere 64 Bits
-            carry = product >> 64; // Übertrag in den nächsten Block
-        }
-        return *this;
-    }
-
     BigAS &operator<<=(nbits_t shift) {
         if (shift == 0) return *this;
         constexpr size_t BITS_PER_BLOCK = 64;
         value_t carry = 0;
 
-        for (size_t i = 0; i < INPUT_PARTITION; ++i) {
-            value_t current = input[i].ashare;
-            input[i].ashare = (current << shift) | carry;
+        for (auto & i : input) {
+            const value_t current = i.ashare;
+            i.ashare = (current << shift) | carry;
             carry = (current >> (BITS_PER_BLOCK - shift));
         }
         return *this;
@@ -557,7 +555,7 @@ struct BigAS {
         return *this;
     }
 
-    BigAS mulshare(const RegAS &rhs) const {
+    [[nodiscard]] BigAS mulshare(const RegAS &rhs) const {
         BigAS res = *this;
         for (auto & i : res.input) {
             i *= rhs.ashare;
