@@ -297,7 +297,7 @@ inline address_t IfRegXS<RegXS>(address_t val) { return val; }
 // a particular field of T, then FT will be the type of the field (RegAS
 // or RegXS) and FST will be a pointer-to-member T::* type pointing to
 // that field.  Sh is the specific Shape subtype used to create the
-// MemRefS.  WIDTH is the RDPF width to use.
+// MemRefS.  WIDTH is the RDPF width to use. => wird aus MemRefS aufgerufen
 
 template <typename T>
 template <typename U,typename FT,typename FST,typename Sh,nbits_t WIDTH>

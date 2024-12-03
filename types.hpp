@@ -166,7 +166,7 @@ struct RegAS {
     }
 
     void dump() const {
-        printf("%016lx", ashare);
+        printf("%016lx\n", ashare);
     }
 };
 
@@ -363,7 +363,7 @@ struct RegXS {
     }
 
     void dump() const {
-        printf("%016lx", xshare);
+        printf("%016lx\n", xshare);
     }
 
     // Extract a bit share of bit bitnum of the XOR-shared register
@@ -395,10 +395,14 @@ struct BigAS {
         }
     }
 
-    explicit BigAS(const RegAS* input) {
+    explicit BigAS(const RegAS input[]) {
         for (size_t i=0;i<INPUT_PARTITION;++i) {
             this->ashares[i] = input[i];
         }
+    }
+
+    void set(size_t pos, RegAS &val) {
+        ashares[pos].set(val.ashare);
     }
 
     RegAS* share() {
@@ -760,6 +764,92 @@ struct BigXS {
 
     [[nodiscard]] RegBS bit(nbits_t pos, nbits_t bitnum) const {
         return xshares[pos].bit(bitnum);
+    }
+};
+
+// Aims to represent a set of indices of size INPUT_PARTITION
+struct IndexAS {
+    BigAS indexChain;
+
+    explicit IndexAS(RegAS start) {
+        indexChain = BigAS();
+        for (value_t i = 0;i<INPUT_PARTITION;i++) {
+            RegAS cur{};
+            cur.set(start.ashare + i);
+            indexChain[i] = cur;
+        }
+    }
+
+    // chain _must_ be of size INPUT_PARTITION
+    explicit IndexAS(BigAS chain): indexChain(chain) {}
+
+    explicit IndexAS() {
+        for (size_t i = 0; i < INPUT_PARTITION; i++) {
+            RegAS cur{};
+            cur.randomize();
+            indexChain[i] = cur;
+        }
+    }
+
+    // can be used in MemRefInd constructor to execute
+    // independent operations on all indices
+    [[nodiscard]] std::vector<RegAS> getVector() const {
+        std::vector<RegAS> res;
+        for (RegAS index : indexChain.ashares) {
+            res.push_back(index);
+        }
+        return res;
+    }
+
+    void dump() const {
+        std::cout << "==== IndexAS ====" << std::endl;
+        for (const RegAS i: indexChain.ashares) {
+            i.dump();
+        }
+        std::cout << "==== IndexAS ====" << std::endl;
+    }
+};
+
+struct IndexXS {
+    BigXS indexChain;
+
+    explicit IndexXS(RegXS start) {
+        indexChain = BigXS();
+        for (value_t i = 0;i<INPUT_PARTITION;i++) {
+            RegXS cur{};
+            cur.set(start.xshare + i);
+            indexChain[i] = cur;
+        }
+    }
+
+    // chain _must_ be of size INPUT_PARTITION
+    explicit IndexXS(BigXS chain): indexChain(chain) {}
+
+    // produces a random set of indizes
+    explicit IndexXS() {
+        for (size_t i = 0; i < INPUT_PARTITION; i++) {
+            RegXS cur{};
+            cur.randomize();
+            indexChain[i] = cur;
+        }
+    }
+
+    // can be used in MemRefInd constructor to execute
+    // independent operations on all indices
+    [[nodiscard]] std::vector<RegXS> getVector() const {
+        std::vector<RegXS> res;
+        for (RegXS index : indexChain.xshares) {
+            res.push_back(index);
+        }
+        return res;
+    }
+
+    void dump() const {
+        std::cout << "==== IndexXS ====" << std::endl;
+        for (const RegXS i: indexChain.xshares) {
+            i.dump();
+        }
+        std::cout << "==== IndexXS ====" << std::endl;
     }
 };
 
