@@ -745,6 +745,40 @@ typename Duoram<T>::Shape::template MemRefInd<U,Sh>
     return *this;
 }
 
+template <typename T> template <typename U, typename Sh>
+typename Duoram<T>::Shape::template MemRefInd<U,Sh>
+    &Duoram<T>::Shape::MemRefInd<U,Sh>::operator+=(const BigAS &M) {
+    const size_t size = INPUT_PARTITION;
+
+    std::vector<coro_t> coroutines;
+    for (size_t i=0;i<size;++i) {
+        coroutines.emplace_back([this, &M, i] (yield_t &yield) {
+            Sh Flat_coro = shape.context(yield);
+            Flat_coro[indcs[i]] += M.ashares[i];
+    });
+    }
+    run_coroutines(shape.yield, coroutines);
+
+    return *this;
+}
+
+template <typename T> template <typename U, typename Sh>
+typename Duoram<T>::Shape::template MemRefInd<U,Sh>
+    &Duoram<T>::Shape::MemRefInd<U,Sh>::operator+=(const BigXS &M) {
+    const size_t size = INPUT_PARTITION;
+
+    std::vector<coro_t> coroutines;
+    for (size_t i=0;i<size;++i) {
+        coroutines.emplace_back([this, &M, i] (yield_t &yield) {
+            Sh Flat_coro = shape.context(yield);
+            Flat_coro[indcs[i]] += M.xshares[i];
+    });
+    }
+    run_coroutines(shape.yield, coroutines);
+
+    return *this;
+}
+
 // Independent U-shared writes into a Shape of subtype Sh on a Duoram
 // with values of sharing type T (vector version)
 template <typename T> template <typename U, typename Sh>

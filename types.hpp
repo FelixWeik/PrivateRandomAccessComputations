@@ -19,10 +19,10 @@
 #endif
 
 #ifndef INPUT_BITS
-#define INPUT_BITS 64
+#define INPUT_BITS 128
 #endif
 
-// number n of n * 64 = given_datasize => defines how many entries each input value gets
+// how many entries does each input value get (for indices and big register types)
 #ifndef INPUT_PARTITION
 #define INPUT_PARTITION (INPUT_BITS/VALUE_BITS)
 #endif
@@ -382,8 +382,6 @@ inline value_t combine(const RegXS &A, const RegXS &B,
     }
     return (A.xshare ^ B.xshare) & mask;
 }
-
-//TODO: repräsentiert man hier nur die Message M und wie und wo generiert man daraus den Index?
 
 // Represents an INPUT_PARTITION multiple of RegAS
 struct BigAS {

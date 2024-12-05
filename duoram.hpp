@@ -132,10 +132,10 @@ class Duoram<T>::Shape {
     // collection of independent memory operations that can be performed
     // simultaneously.  Sh is the specific Shape subtype used to create
     // the MemRefInd.
+public: // TODO das ist jetzt bisschen Pfusch, muss das weg?
     template <typename U, typename Sh>
     class MemRefInd;
-
-protected:
+ protected:
     // A reference to the parent shape.  As with ".." in the root
     // directory of a filesystem, the topmost shape is indicated by
     // having parent = *this.
@@ -449,17 +449,17 @@ public:
     // Index into this Flat in various ways => return value has type MemRefS (if not using direct address)
     typename Duoram::Shape::template MemRefS<RegAS,T,std::nullopt_t,Flat,1>
             operator[](const RegAS &idx) {
-        typename Duoram<T>::Shape::
-            template MemRefS<RegAS,T,std::nullopt_t,Flat,1>
-            res(*this, idx, std::nullopt);
-        return res;
+                typename Duoram<T>::Shape::
+                    template MemRefS<RegAS,T,std::nullopt_t,Flat,1>
+                    res(*this, idx, std::nullopt);
+                return res;
     }
     typename Duoram::Shape::template MemRefS<RegXS,T,std::nullopt_t,Flat,1>
             operator[](const RegXS &idx) {
-        typename Duoram<T>::Shape::
-            template MemRefS<RegXS,T,std::nullopt_t,Flat,1>
-            res(*this, idx, std::nullopt);
-        return res;
+                typename Duoram<T>::Shape::
+                    template MemRefS<RegXS,T,std::nullopt_t,Flat,1>
+                    res(*this, idx, std::nullopt);
+                return res;
     }
     template <typename U, nbits_t WIDTH>
     typename Duoram::Shape::template MemRefS<U,T,std::nullopt_t,Flat,WIDTH>
@@ -477,7 +477,7 @@ public:
         return res;
     }
     template <typename U>
-    Duoram::Shape::MemRefInd<U, Flat>
+    typename Duoram::Shape::template MemRefInd<U, Flat>
             operator[](const std::vector<U> &indcs) {
         typename Duoram<T>::Shape::
             template MemRefInd<U,Flat>
@@ -485,13 +485,27 @@ public:
         return res;
     }
     template <typename U, size_t N>
-    Duoram::Shape::MemRefInd<U, Flat>
+    typename Duoram::Shape::template MemRefInd<U, Flat>
             operator[](const std::array<U,N> &indcs) {
         typename Duoram<T>::Shape::
             template MemRefInd<U,Flat>
             res(*this, indcs);
         return res;
     }
+    Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
+        operator[](const IndexAS &idx) {
+            std::vector<RegAS> i = idx.getVector();
+            Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
+            res(*this, i);
+            return res;
+    }
+    Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
+        operator[](const IndexXS &idx) {
+            std::vector<RegXS> i = idx.getVector();
+            Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
+            res(*this, i);
+            return res;
+        }
 
     // Oblivious sort the elements indexed by the two given indices.
     // Without reconstructing the values, if dir=0, this[idx1] will
@@ -622,6 +636,10 @@ public:
 // that field.  Sh is the specific Shape subtype used to create the
 // MemRefS.  WIDTH is the RDPF width to use.
 
+// TODO aktuelle Idee: template FT durch pointer FT* ersetzen,
+//  dann zugrundeliegende Operationen auf FT* anpassen
+//  FT* wäre in diesem Fall einfach BigXS bzw BigAS
+
 template <typename T>
 template <typename U, typename FT, typename FST, typename Sh, nbits_t WIDTH>
 class Duoram<T>::Shape::MemRefS {
@@ -638,8 +656,8 @@ class Duoram<T>::Shape::MemRefS {
 
     FST fieldsel;
 
-    // Oblivious update to a shared index of Duoram memory, only for
-    // FT = RegAS or RegXS
+    // Oblivious update to a shared index of Duoram memory, only for FT = RegAS or RegXS
+    // TODO: Change to BigAS / BigXS (diese aufgabe fällt wahrscheinlich über memrefind änderung weg)
     MemRefS<U,FT,FST,Sh,WIDTH> &oram_update(const FT& M, const prac_template_true&);
     // Oblivious update to a shared index of Duoram memory, for
     // FT not RegAS or RegXS
@@ -701,7 +719,8 @@ public:
         return res;
     }
 
-    // Explicit read from a given index of Duoram memory => memrefexpl can be implicitly converted to FT
+    // Explicit read from a given index of Duoram memory
+    // => memrefexpl can be implicitly converted to FT (RegAS / RegXS)
     operator FT();
 
     // Explicit update to a given index of Duoram memory
@@ -741,6 +760,8 @@ public:
     MemRefInd &operator+=(const std::vector<T>& M);
     template <size_t N>
     MemRefInd &operator+=(const std::array<T,N>& M);
+    MemRefInd &operator+=(const BigAS &M);
+    MemRefInd &operator+=(const BigXS &M);
 
     // Independent writes to shared or explicit indices of Duoram memory
     MemRefInd &operator=(const std::vector<T>& M);
