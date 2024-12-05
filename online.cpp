@@ -642,7 +642,7 @@ static void par_tupleeval_timing(MPCIO &mpcio,
 }
 
 // T is RegAS or RegXS for additive or XOR shared database respectively
-template <typename T>
+template <typename T> // => T is usually set to RegAS (unless explicitly specified)
 static void duoram_test(MPCIO &mpcio,
     const PRACOptions &opts, char **args)
 {
@@ -763,6 +763,109 @@ static void duoram_test(MPCIO &mpcio,
     });
 }
 
+template <typename T>
+static void big(MPCIO &mpcio, const PRACOptions &opts, char **args) {
+    std::cerr << "How did you even manage to get here???" << std::endl;
+}
+
+template <>
+void big<RegAS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
+    nbits_t depth = 6;
+    int items = 4;
+
+    if (*args) {
+        depth = atoi(*args);
+        ++args;
+    }
+    if (*args) {
+        items = atoi(*args);
+        ++args;
+    }
+
+    MPCTIO tio(mpcio, 0, opts.num_cpu_threads);
+
+    run_coroutines(tio, [&mpcio, &tio, depth, items] (yield_t &yield) {
+        size_t size = size_t(1)<<depth;  // size = 2^depth
+        address_t mask = (depth < ADDRESS_MAX_BITS ?
+            ((address_t(1)<<depth) - 1) : ~0);
+        Duoram<RegAS> oram(tio.player(), size);
+
+        typename Duoram<RegAS>::Flat A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
+        IndexAS idx;
+
+        RegAS regas0, regas1;
+        regas0.randomize();
+        regas1.randomize();
+        RegAS regas[] = { regas0, regas1 };
+        BigAS bigASin(regas);
+
+        std::cout << "==== Updating ====" << std::endl;
+        mpcio.reset_stats();
+        tio.reset_lamport();
+        A[idx] += bigASin;
+        tio.sync_lamport();
+        mpcio.dump_stats(std::cout);
+        std::cout << "==== Finish Updating ====" << std::endl;
+
+        std::cout << "==== Reading ====" << std::endl;
+        mpcio.reset_stats();
+        tio.reset_lamport();
+        std::vector<RegAS> out = A[idx];
+        tio.sync_lamport();
+        mpcio.dump_stats(std::cout);
+        std::cout << "==== Finish Reading ====" << std::endl;
+    });
+}
+
+template <>
+void big<RegXS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
+    nbits_t depth = 6;
+    int items = 4;
+
+    if (*args) {
+        depth = atoi(*args);
+        ++args;
+    }
+    if (*args) {
+        items = atoi(*args);
+        ++args;
+    }
+
+    MPCTIO tio(mpcio, 0, opts.num_cpu_threads);
+
+    run_coroutines(tio, [&mpcio, &tio, depth, items] (yield_t &yield) {
+        size_t size = size_t(1)<<depth;  // size = 2^depth
+        address_t mask = (depth < ADDRESS_MAX_BITS ?
+            ((address_t(1)<<depth) - 1) : ~0);
+        Duoram<RegXS> oram(tio.player(), size);
+
+        typename Duoram<RegXS>::Flat A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
+        IndexXS idx;
+
+        RegXS regxs0, regxs1;
+        regxs0.randomize();
+        regxs1.randomize();
+        RegXS regxs[] = { regxs0, regxs1 };
+        BigXS bigXSin(regxs);
+
+        std::cout << "==== Updating ====" << std::endl;
+        mpcio.reset_stats();
+        tio.reset_lamport();
+        A[idx] += bigXSin;
+        tio.sync_lamport();
+        mpcio.dump_stats(std::cout);
+        std::cout << "==== Finish Updating ====" << std::endl;
+
+        std::cout << "==== Reading ====" << std::endl;
+        mpcio.reset_stats();
+        tio.reset_lamport();
+        std::vector<RegXS> out = A[idx];
+        tio.sync_lamport();
+        mpcio.dump_stats(std::cout);
+        std::cout << "==== Finish Reading ====" << std::endl;
+    });
+}
+
 // This measures the same things as the Duoram paper: dependent and
 // independent reads, updates, writes, and interleaves
 // T is RegAS or RegXS for additive or XOR shared database respectively
@@ -788,15 +891,13 @@ static void duoram(MPCIO &mpcio,
         address_t mask = (depth < ADDRESS_MAX_BITS ?
             ((address_t(1)<<depth) - 1) : ~0);
         Duoram<T> oram(tio.player(), size);
-        auto A = oram.flat(tio, yield);  // Duoram will be accessed via "Flat"-Shape
-
+        auto A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
         std::cout << "===== DEPENDENT UPDATES =====\n";
         mpcio.reset_stats();
         tio.reset_lamport();
         // Make a linked list of length items => the indices written in here will first be updated, then read twice
         std::vector<T> list_indices;
         T prev_index, next_index;
-        prev_index.randomize(depth);  // sets prev_index to a random value that is depth-bits long
         for (int i=0;i<items;++i) {
             next_index.randomize(depth);  // important: randomize is pseudorandom (also adds a bit-mask)
             A[next_index] += prev_index;
@@ -810,10 +911,6 @@ static void duoram(MPCIO &mpcio,
         std::cout << "\n===== DEPENDENT READS =====\n";  // dependent = read n can only be started after n-1 finished
         mpcio.reset_stats();
         tio.reset_lamport();
-
-        // Comparing functionality for testing
-        auto A_valuet = static_cast<T>(A[prev_index]);
-        A_tmp.test(A_valuet);
 
         // Read the linked list starting with prev_index
         T cur_index = prev_index;
@@ -1679,6 +1776,13 @@ void online_main(MPCIO &mpcio, const PRACOptions &opts, char **args)
             duoram<RegXS>(mpcio, opts, args);
         } else {
             duoram<RegAS>(mpcio, opts, args);
+        }
+    } else if (!strcmp(*args, "big")) {
+        ++args;
+        if (opts.use_xor_db) {
+            big<RegXS>(mpcio, opts, args);
+        } else {
+            big<RegAS>(mpcio, opts, args);
         }
     } else if (!strcmp(*args, "related")) {
         ++args;
