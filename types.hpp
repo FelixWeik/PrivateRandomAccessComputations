@@ -10,6 +10,8 @@
 #include <x86intrin.h>  // SSE and AVX intrinsics
 #include <bsd/stdlib.h> // arc4random_buf
 
+#include <gmp.h>
+
 #include "bitutils.hpp"
 
 // The number of bits in an MPC secret-shared memory word
