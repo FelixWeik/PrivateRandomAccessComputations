@@ -42,7 +42,7 @@ static inline void prgboth(__m128i &left, __m128i &right, __m128i seed,
     __m128i inl = set_lsb(seed, 0);
     __m128i inr = set_lsb(seed, 1);
     __m128i midl, midr;
-    AES_ECB_encrypt(midl, inl, prgkey.k, aes_ops);  // ciphertext (midl) is result of encryption
+    AES_ECB_encrypt(midl, inl, prgkey.k, aes_ops);
     AES_ECB_encrypt(midr, inr, prgkey.k, aes_ops);
     left = midl ^ inl;  // XORs the ciphertext with the plaintext (OTP?)
     right = midr ^ inr;

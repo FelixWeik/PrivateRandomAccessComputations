@@ -146,7 +146,7 @@ struct RDPF : public DPF {
     inline RegBS unit_bs(const LeafNode &leaf) const {
         RegBS b;
         b.bshare = get_lsb(leaf[0]);
-        return b;
+        return b;;;
     }
 
     // Get the additive-shared unit vector entry from the leaf node

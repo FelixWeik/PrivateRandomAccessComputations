@@ -68,11 +68,11 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
 {
     DPFnode prgout;
     bool flag = get_lsb(parent);
-    prg(prgout, parent, whichchild, aes_ops);  // generation on the fly possible, since prg returns fixed value for given seed
+    prg(prgout, parent, whichchild, aes_ops);  // generation on the fly possible (prg is pseudorandom)
     if (flag) {
         DPFnode CW = cw[parentdepth];
         bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
-        DPFnode CWR = CW ^ lsb128_mask[cfbit];
+        DPFnode CWR = CW ^ lsb128_mask[cfbit];  // if cfbit = 0 both cws will be equal
         prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;
