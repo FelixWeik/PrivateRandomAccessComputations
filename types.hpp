@@ -23,14 +23,162 @@
 // Values in MPC secret-shared memory are of this type.
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
+struct value_t {
+    mpz_t value; // GMP-Zahl
 
-#if VALUE_BITS == 64
-using value_t = uint64_t;
-#elif VALUE_BITS == 32
-using value_t = uint32_t;
-#else
-#error "Unsupported value of VALUE_BITS"
-#endif
+    value_t() {
+        mpz_init2(value, VALUE_BITS);
+    }
+
+    value_t(const value_t& other) {
+        mpz_init2(value, VALUE_BITS);
+        mpz_set(value, other.value);
+    }
+
+    value_t& operator=(const value_t& other) {
+        if (this != &other) {
+            mpz_set(value, other.value);
+        }
+        return *this;
+    }
+
+    template<typename T>
+    value_t(T val) {
+        mpz_init2(value, VALUE_BITS);
+        mpz_set_ui(value, static_cast<unsigned long>(val));
+    }
+
+    ~value_t() {
+        mpz_clear(value);
+    }
+
+    value_t operator+(const value_t& other) const {
+        value_t result;
+        mpz_add(result.value, this->value, other.value);
+        return result;
+    }
+
+    value_t operator-(const value_t& other) const {
+        value_t result;
+        mpz_sub(result.value, this->value, other.value);
+        return result;
+    }
+
+    value_t operator*(const value_t& other) const {
+        value_t result;
+        mpz_mul(result.value, this->value, other.value);
+        return result;
+    }
+
+    value_t operator/(const value_t& other) const {
+        value_t result;
+        mpz_fdiv_q(result.value, this->value, other.value);
+        return result;
+    }
+
+    value_t operator%(const value_t& other) const {
+        value_t result;
+        mpz_mod(result.value, this->value, other.value);
+        return result;
+    }
+
+    bool operator==(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) == 0;
+    }
+
+    bool operator!=(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) != 0;
+    }
+
+    bool operator<(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) < 0;
+    }
+
+    bool operator>(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) > 0;
+    }
+
+    bool operator<=(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) <= 0;
+    }
+
+    bool operator>=(const value_t& other) const {
+        return mpz_cmp(this->value, other.value) >= 0;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const value_t& val) {
+        char* str = mpz_get_str(nullptr, 10, val.value);
+        os << str;
+        free(str);
+        return os;
+    }
+
+    value_t operator<<(unsigned int shift) const {
+        value_t result;
+        mpz_mul_2exp(result.value, this->value, shift);
+        return result;
+    }
+
+    value_t operator>>(unsigned int shift) const {
+        value_t result;
+        mpz_fdiv_q_2exp(result.value, this->value, shift);
+        return result;
+    }
+
+    value_t& operator*=(const value_t& other) {
+        mpz_mul(this->value, this->value, other.value);
+        return *this;
+    }
+
+    value_t& operator<<=(unsigned int shift) {
+        mpz_mul_2exp(this->value, this->value, shift);
+        return *this;
+    }
+
+    value_t& operator>>=(unsigned int shift) {
+        mpz_fdiv_q_2exp(this->value, this->value, shift);
+        return *this;
+    }
+
+    value_t& operator^=(const value_t& other) {
+        mpz_xor(this->value, this->value, other.value);
+        return *this;
+    }
+
+    value_t& operator&=(const value_t& other) {
+        mpz_and(this->value, this->value, other.value);
+        return *this;
+    }
+
+    value_t operator&(const value_t& other) const {
+        value_t result;
+        mpz_and(result.value, this->value, other.value);
+        return result;
+    }
+
+    value_t& operator+=(const value_t& other) {
+        mpz_add(this->value, this->value, other.value);
+        return *this;
+    }
+
+    value_t& operator-=(const value_t& other) {
+        mpz_sub(this->value, this->value, other.value);
+        return *this;
+    }
+
+    void dump() const {
+        char* str = mpz_get_str(nullptr, 10, this->value);
+        std::cout << "value_t: " << str << std::endl;
+        free(str);
+    }
+
+    value_t operator^(const value_t& other) const {
+        value_t result;
+        mpz_xor(result.value, this->value, other.value); // Führe bitweisen XOR durch
+        return result;
+    }
+
+};
 
 // Secret-shared bits are of this type.  Note that it is standards
 // compliant to treat a bool as an unsigned integer type with values 0
@@ -102,12 +250,12 @@ struct RegAS {
         return res;
     }
 
-    RegAS &operator*=(value_t rhs) {
+    RegAS &operator*=(const value_t& rhs) {
         this->ashare *= rhs;
         return *this;
     }
 
-    RegAS operator*(value_t rhs) const {
+    RegAS operator*(const value_t& rhs) const {
         RegAS res = *this;
         res *= rhs;
         return res;
@@ -135,12 +283,12 @@ struct RegAS {
         return res;
     }
 
-    RegAS &operator&=(value_t mask) {
+    RegAS &operator&=(const value_t& mask) {
         this->ashare &= mask;
         return *this;
     }
 
-    RegAS operator&(value_t mask) const {
+    RegAS operator&(const value_t& mask) const {
         RegAS res = *this;
         res &= mask;
         return res;
@@ -152,14 +300,14 @@ struct RegAS {
         *this *= rhs.ashare;
         return *this;
     }
-    inline RegAS mulshare(const RegAS &rhs) const {
+    [[nodiscard]] RegAS mulshare(const RegAS &rhs) const {
         RegAS res = *this;
         res *= rhs.ashare;
         return res;
     }
 
     void dump() const {
-        printf("%016lx", ashare);
+        ashare.dump();
     }
 };
 
@@ -178,11 +326,11 @@ struct RegBS {
 
     RegBS() : bshare(0) {}
 
-    inline bit_t share() const { return bshare; }
-    inline void set(bit_t s) { bshare = s; }
+    [[nodiscard]] bit_t share() const { return bshare; }
+    void set(bit_t s) { bshare = s; }
 
     // Set each side's share to a random bit
-    inline void randomize() {
+    void randomize() {
         unsigned char randb;
         arc4random_buf(&randb, sizeof(randb));
         bshare = randb & 1;
@@ -216,10 +364,10 @@ struct RegXS {
     value_t xshare;
 
     RegXS() : xshare(0) {}
-    RegXS(const RegBS &b) { xshare = b.bshare ? ~0 : 0; }
+    explicit RegXS(const RegBS &b) { xshare = b.bshare ? ~0 : 0; }
 
-    inline value_t share() const { return xshare; }
-    inline void set(value_t s) { xshare = s; }
+    [[nodiscard]] value_t share() const { return xshare; }
+    void set(const value_t& s) { xshare = s; }
 
     // Set each side's share to a random value nbits bits long
     void randomize(size_t nbits = VALUE_BITS) {
@@ -228,7 +376,7 @@ struct RegXS {
         xshare &= mask;
     }
 
-    void test(RegXS xreg) const {
+    void test(const RegXS& xreg) const {
         std::cout << "==== TEST RegXS ====" << std::endl;
         std::cout << "test_share = " << xreg.xshare << std::endl;
         bool res = xreg.xshare == this->xshare;
@@ -268,12 +416,12 @@ struct RegXS {
         return res;
     }
 
-    RegXS &operator*=(value_t rhs) {
+    RegXS &operator*=(const value_t& rhs) {
         this->xshare &= rhs;
         return *this;
     }
 
-    RegXS operator*(value_t rhs) const {
+    RegXS operator*(const value_t& rhs) const {
         RegXS res = *this;
         res *= rhs;
         return res;
@@ -301,12 +449,12 @@ struct RegXS {
         return res;
     }
 
-    RegXS &operator&=(value_t mask) {
+    RegXS &operator&=(const value_t& mask) {
         this->xshare &= mask;
         return *this;
     }
 
-    RegXS operator&(value_t mask) const {
+    RegXS operator&(const value_t& mask) const {
         RegXS res = *this;
         res &= mask;
         return res;
@@ -336,11 +484,12 @@ struct RegXS {
         return res;
     }
 
-    inline RegBS bitat(nbits_t pos) const {
+    RegBS bitat(nbits_t pos) const {
         RegBS bs;
-        bs.set(!!(this->xshare & (value_t(1)<<pos)));
+        bs.set(mpz_tstbit(this->xshare.value, pos) != 0);
         return bs;
     }
+
 
     // Multiply by the local share of the argument, not multiplcation of
     // two shared values (two versions)
@@ -349,22 +498,23 @@ struct RegXS {
         return *this;
     }
 
-    inline RegXS mulshare(const RegXS &rhs) const {
+     RegXS mulshare(const RegXS &rhs) const {
         RegXS res = *this;
         res *= rhs.xshare;
         return res;
     }
 
     void dump() const {
-        printf("%016lx", xshare);
+        xshare.dump();
     }
 
     // Extract a bit share of bit bitnum of the XOR-shared register
-    inline RegBS bit(nbits_t bitnum) const {
+    RegBS bit(nbits_t bitnum) const {
         RegBS bs;
-        bs.bshare = !!(xshare & (value_t(1)<<bitnum));
+        bs.bshare = mpz_tstbit(this->xshare.value, bitnum) != 0;
         return bs;
     }
+
 };
 
 inline value_t combine(const RegXS &A, const RegXS &B,
