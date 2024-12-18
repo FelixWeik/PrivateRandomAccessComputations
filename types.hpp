@@ -177,7 +177,6 @@ struct value_t {
         mpz_xor(result.value, this->value, other.value); // Führe bitweisen XOR durch
         return result;
     }
-
 };
 
 // Secret-shared bits are of this type.  Note that it is standards
@@ -188,7 +187,172 @@ using bit_t = bool;
 
 // Counts of the number of bits in a value are of this type, which must
 // be large enough to store the _value_ VALUE_BITS
-using nbits_t = uint8_t;
+struct nbits_t {
+    mpz_t value;
+
+    nbits_t() {
+        mpz_init2(value, VALUE_BITS / 4);
+    }
+
+    nbits_t(const nbits_t& other) {
+        mpz_init2(value, VALUE_BITS / 4);
+        mpz_set(value, other.value);
+    }
+
+    nbits_t& operator=(const nbits_t& other) {
+        if (this != &other) {
+            mpz_set(value, other.value);
+        }
+        return *this;
+    }
+
+    template<typename T>
+    nbits_t(T val) {
+        mpz_init2(value, VALUE_BITS / 4);
+        mpz_set_ui(value, static_cast<unsigned long>(val));
+    }
+
+    ~nbits_t() {
+        mpz_clear(value);
+    }
+
+    nbits_t operator+(const nbits_t& other) const {
+        nbits_t result;
+        mpz_add(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t operator-(const nbits_t& other) const {
+        nbits_t result;
+        mpz_sub(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t operator*(const nbits_t& other) const {
+        nbits_t result;
+        mpz_mul(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t operator/(const nbits_t& other) const {
+        nbits_t result;
+        mpz_fdiv_q(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t operator%(const nbits_t& other) const {
+        nbits_t result;
+        mpz_mod(result.value, this->value, other.value);
+        return result;
+    }
+
+    bool operator==(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) == 0;
+    }
+
+    bool operator!=(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) != 0;
+    }
+
+    bool operator<(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) < 0;
+    }
+
+    bool operator>(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) > 0;
+    }
+
+    bool operator<=(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) <= 0;
+    }
+
+    bool operator>=(const nbits_t& other) const {
+        return mpz_cmp(this->value, other.value) >= 0;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const nbits_t& val) {
+        char* str = mpz_get_str(nullptr, 10, val.value);
+        os << str;
+        free(str);
+        return os;
+    }
+
+    nbits_t operator<<(unsigned int shift) const {
+        nbits_t result;
+        mpz_mul_2exp(result.value, this->value, shift);
+        return result;
+    }
+
+    nbits_t operator>>(unsigned int shift) const {
+        nbits_t result;
+        mpz_fdiv_q_2exp(result.value, this->value, shift);
+        return result;
+    }
+
+    nbits_t& operator*=(const nbits_t& other) {
+        mpz_mul(this->value, this->value, other.value);
+        return *this;
+    }
+
+    nbits_t& operator<<=(unsigned int shift) {
+        mpz_mul_2exp(this->value, this->value, shift);
+        return *this;
+    }
+
+    nbits_t& operator>>=(unsigned int shift) {
+        mpz_fdiv_q_2exp(this->value, this->value, shift);
+        return *this;
+    }
+
+    nbits_t& operator^=(const nbits_t& other) {
+        mpz_xor(this->value, this->value, other.value);
+        return *this;
+    }
+
+    nbits_t& operator&=(const nbits_t& other) {
+        mpz_and(this->value, this->value, other.value);
+        return *this;
+    }
+
+    nbits_t operator&(const nbits_t& other) const {
+        nbits_t result;
+        mpz_and(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t& operator+=(const nbits_t& other) {
+        mpz_add(this->value, this->value, other.value);
+        return *this;
+    }
+
+    nbits_t& operator-=(const nbits_t& other) {
+        mpz_sub(this->value, this->value, other.value);
+        return *this;
+    }
+
+    void dump() const {
+        char* str = mpz_get_str(nullptr, 10, this->value);
+        std::cout << "nbits_t: " << str << std::endl;
+        free(str);
+    }
+
+    nbits_t operator^(const nbits_t& other) const {
+        nbits_t result;
+        mpz_xor(result.value, this->value, other.value);
+        return result;
+    }
+
+    nbits_t& operator++() {
+        mpz_add_ui(value, value, 1);
+        return *this;
+    }
+
+    nbits_t operator++(int) {  // "int" is solely used for distinguishing pre- and post-incrementation (this is pre)
+        nbits_t temp = *this;
+        mpz_add_ui(value, value, 1);
+        return temp;
+    }
+};
 
 // Convert a number of bits to the number of bytes required to store (or
 // more to the point, send) them.
@@ -261,12 +425,12 @@ struct RegAS {
         return res;
     }
 
-    RegAS &operator<<=(nbits_t shift) {
-        this->ashare <<= shift;
+    RegAS &operator<<=(const nbits_t& shift) {
+        this->ashare <<= mpz_get_ui(shift.value);
         return *this;
     }
 
-    RegAS operator<<(nbits_t shift) const {
+    RegAS operator<<(const nbits_t& shift) const {
         RegAS res = *this;
         res <<= shift;
         return res;
@@ -311,11 +475,11 @@ struct RegAS {
     }
 };
 
-inline value_t combine(const RegAS &A, const RegAS &B,
-        nbits_t nbits = VALUE_BITS) {
+inline value_t combine(const RegAS &A, const RegAS &B, nbits_t nbits = VALUE_BITS) {
     value_t mask = ~0;
-    if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<nbits)-1;
+    unsigned int shift_val = mpz_get_ui(nbits.value); // Konvertiere nbits in unsigned int
+    if (shift_val < VALUE_BITS) {
+        mask = (value_t(1) << shift_val) - 1;
     }
     return (A.ashare + B.ashare) & mask;
 }
@@ -463,22 +627,22 @@ struct RegXS {
     // Bit shifting and bit extraction
 
     RegXS &operator<<=(nbits_t shift) {
-        this->xshare <<= shift;
+        this->xshare <<= mpz_get_ui(shift.value);
         return *this;
     }
 
-    RegXS operator<<(nbits_t shift) const {
+    RegXS operator<<(const nbits_t& shift) const {
         RegXS res = *this;
         res <<= shift;
         return res;
     }
 
     RegXS &operator>>=(nbits_t shift) {
-        this->xshare >>= shift;
+        this->xshare >>= mpz_get_ui(shift.value);
         return *this;
     }
 
-    RegXS operator>>(nbits_t shift) const {
+    RegXS operator>>(const nbits_t& shift) const {
         RegXS res = *this;
         res >>= shift;
         return res;
@@ -486,7 +650,7 @@ struct RegXS {
 
     RegBS bitat(nbits_t pos) const {
         RegBS bs;
-        bs.set(mpz_tstbit(this->xshare.value, pos) != 0);
+        bs.set(mpz_tstbit(this->xshare.value, mpz_get_ui(pos.value)) != 0);
         return bs;
     }
 
@@ -511,7 +675,7 @@ struct RegXS {
     // Extract a bit share of bit bitnum of the XOR-shared register
     RegBS bit(nbits_t bitnum) const {
         RegBS bs;
-        bs.bshare = mpz_tstbit(this->xshare.value, bitnum) != 0;
+        bs.bshare = mpz_tstbit(this->xshare.value, mpz_get_ui(bitnum.value)) != 0;
         return bs;
     }
 
@@ -521,7 +685,7 @@ inline value_t combine(const RegXS &A, const RegXS &B,
         nbits_t nbits = VALUE_BITS) {
     value_t mask = ~0;
     if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<nbits)-1;
+        mask = (value_t(1)<<mpz_get_ui(nbits.value))-1;
     }
     return (A.xshare ^ B.xshare) & mask;
 }
