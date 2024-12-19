@@ -188,7 +188,7 @@ using bit_t = bool;
 
 // Counts of the number of bits in a value are of this type, which must
 // be large enough to store the _value_ VALUE_BITS
-using nbits_t = uint8_t;
+using nbits_t = uint64_t;
 
 // Convert a number of bits to the number of bytes required to store (or
 // more to the point, send) them.
