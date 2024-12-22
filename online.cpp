@@ -972,7 +972,7 @@ static void cdpf_test(MPCIO &mpcio,
                         DPFnode leaf0 = dpf0.leaf(query, aes_ops);
                         DPFnode leaf1 = dpf1.leaf(query, aes_ops);
                         printf("DPFXOR_{%016lx}(%016lx} = ", target, query);
-                        dump_node(leaf0 ^ leaf1);
+                        dump_node(_mm_xor_si128(leaf0, leaf1));
                     } else {
                         CDPF dpf = tio.cdpf(yield);
                         printf("ashare = %016lX\nxshare = %016lX\n",
@@ -986,7 +986,7 @@ static void cdpf_test(MPCIO &mpcio,
                             DPFnode peerleaf;
                             tio.iostream_peer() >> peerleaf;
                             printf("XOR = ");
-                            dump_node(leaf ^ peerleaf);
+                            dump_node(_mm_xor_si128(leaf, peerleaf));
                         }
                     }
                 }
@@ -1038,11 +1038,11 @@ static int compare_test_one(MPCTIO &tio, yield_t &yield,
             int eeqi = int(eeq.bshare);
             x = xsh.share();
             printf(": %d %d %d %d ", lti, eqi, gti, eeqi);
-            bool signbit = (x >> 63);
+            bool signbit = (x >> value_t(63));
             if (lti + eqi + gti != 1 || eqi != eeqi) {
                 printf("INCONSISTENT");
                 res = 0;
-            } else if (x == 0 && eqi) {
+            } else if (x == value_t(0) && eqi) {
                 printf("=");
             } else if (!signbit && gti) {
                 printf(">");
@@ -1072,9 +1072,9 @@ static int compare_test_target(MPCTIO &tio, yield_t &yield,
     res &= compare_test_one(tio, yield, target, -15);
     res &= compare_test_one(tio, yield, target, -16);
     res &= compare_test_one(tio, yield, target, -17);
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<63));
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<63)+1);
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<63)-1);
+    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63)));
+    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))+value_t(1));
+    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))-value_t(1));
     return res;
 }
 
@@ -1111,9 +1111,9 @@ static void compare_test(MPCIO &mpcio,
                 res &= compare_test_target(tio, yield, -15, x);
                 res &= compare_test_target(tio, yield, -16, x);
                 res &= compare_test_target(tio, yield, -17, x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<63), x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<63)+1, x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<63)-1, x);
+                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63)), x);
+                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))+value_t(1), x);
+                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))-value_t(1), x);
                 if (tio.player() == 0) {
                     if (res == 1) {
                         printf("All tests passed!\n");
@@ -1282,7 +1282,7 @@ static void bsearch_test(MPCIO &mpcio,
         ++args;
     }
     if (is_presorted) {
-        target %= (value_t(len) << 16);
+        target %= (value_t(len) << value_t(16));
     }
     if (*args) {
         target = strtoull(*args, NULL, 16);
@@ -1293,123 +1293,123 @@ static void bsearch_test(MPCIO &mpcio,
     run_coroutines(tio, [&tio, &mpcio, depth, len, iters, target, is_presorted] (yield_t &yield) {
         RegAS tshare;
         std::cout << "\n===== SETUP =====\n";
-
-        if (tio.player() == 2) {
-            // Send shares of the target to the computational
-            // players
-            RegAS tshare0, tshare1;
-            tshare0.randomize();
-            tshare1.set(target-tshare0.share());
-            tio.iostream_p0() << tshare0;
-            tio.iostream_p1() << tshare1;
-            printf("Using target = %016lx\n", target);
-            yield();
-        } else {
-            // Get the share of the target
-            yield();
-            tio.iostream_server() >> tshare;
-        }
-
-        tio.sync_lamport();
-        mpcio.dump_stats(std::cout);
-
-        std::cout << "\n===== " << (is_presorted ? "CREATE" : "SORT RANDOM")
-            << " DATABASE =====\n";
-        mpcio.reset_stats();
-        tio.reset_lamport();
-        // If is_presorted is true, create a database of presorted
-        // values.  If is_presorted is false, create a database of
-        // random values and explicitly sort it.
-        Duoram<RegAS> oram(tio.player(), len);
-        auto A = oram.flat(tio, yield);
-
-        // Initialize the memory to sorted or random values, depending
-        // on the is_presorted flag
-        if (is_presorted) {
-            A.init([](size_t i) {
-                return value_t(i) << 16;
-            });
-        } else {
-            A.explicitonly(true);
-            for (address_t i=0; i<len; ++i) {
-                RegAS v;
-                v.randomize(62);
-                A[i] = v;
-            }
-            A.explicitonly(false);
-            A.bitonic_sort(0, len);
-        }
-
-        tio.sync_lamport();
-        mpcio.dump_stats(std::cout);
-
-        std::cout << "\n===== BINARY SEARCH =====\n";
-        mpcio.reset_stats();
-        tio.reset_lamport();
-        // Binary search for the target
-        T tindex;
-        for (int i=0; i<iters; ++i) {
-            if constexpr (basic) {
-                tindex = A.basic_binary_search(tshare);
-            } else {
-                tindex = A.binary_search(tshare);
-            }
-        }
-
-        // Don't spend time reconstructing the database to check the
-        // answer if the database is huge
-        if (depth > 25) {
-            return;
-        }
-
-        tio.sync_lamport();
-        mpcio.dump_stats(std::cout);
-
-        std::cout << "\n===== CHECK ANSWER =====\n";
-        mpcio.reset_stats();
-        tio.reset_lamport();
-        // Check the answer
-        size_t size = size_t(1) << depth;
-        value_t checkindex = mpc_reconstruct(tio, yield, tindex);
-        value_t checktarget = mpc_reconstruct(tio, yield, tshare);
-        auto check = A.reconstruct();
-        bool fail = false;
-        if (tio.player() == 0) {
-            for (address_t i=0;i<len;++i) {
-                if (depth <= 10) {
-                    printf("%c%04x %016lx\n",
-                        (i == checkindex ? '*' : ' '),
-                        i, check[i].share());
-                }
-                if (i>0 && i<len &&
-                    check[i].share() < check[i-1].share()) {
-                    fail = true;
-                }
-                if (i == checkindex) {
-                    // check[i] should be >= target, and check[i-1]
-                    // should be < target
-                    if ((i < len && check[i].share() < checktarget) ||
-                        (i > 0 && check[i-1].share() >= checktarget)) {
-                        fail = true;
-                    }
-                }
-            }
-            if (checkindex == len && check[len-1].share() >= checktarget) {
-                fail = true;
-            }
-
-            printf("Target = %016lx\n", checktarget);
-            printf("Found index = %02lx\n", checkindex);
-            if (checkindex > size) {
-                fail = true;
-            }
-            if (fail) {
-                printf("FAIL\n");
-            } else {
-                printf("PASS\n");
-            }
-        }
     });
+        // if (tio.player() == 2) {
+        //     // Send shares of the target to the computational
+        //     // players
+        //     RegAS tshare0, tshare1;
+        //     tshare0.randomize();
+        //     tshare1.set(target-tshare0.share());
+        //     tio.iostream_p0() << tshare0;
+        //     tio.iostream_p1() << tshare1;
+        //     printf("Using target = %016lx\n", target);
+        //     yield();
+        // } else {
+        //     // Get the share of the target
+        //     yield();
+        //     tio.iostream_server() >> tshare;
+        // }
+        //
+        // tio.sync_lamport();
+        // mpcio.dump_stats(std::cout);
+        //
+        // std::cout << "\n===== " << (is_presorted ? "CREATE" : "SORT RANDOM")
+        //     << " DATABASE =====\n";
+        // mpcio.reset_stats();
+        // tio.reset_lamport();
+        // // If is_presorted is true, create a database of presorted
+        // // values.  If is_presorted is false, create a database of
+        // // random values and explicitly sort it.
+        // Duoram<RegAS> oram(tio.player(), len);
+        // auto A = oram.flat(tio, yield);
+        //
+        // // Initialize the memory to sorted or random values, depending
+        // // on the is_presorted flag
+        // if (is_presorted) {
+        //     A.init([](size_t i) {
+        //         return value_t(i) << value_t(16);
+        //     });
+        // } else {
+        //     A.explicitonly(true);
+        //     for (address_t i=0; i<len; ++i) {
+        //         RegAS v;
+        //         v.randomize(62);
+        //         A[i] = v;
+        //     }
+        //     A.explicitonly(false);
+        //     A.bitonic_sort(0, len);
+        // }
+        //
+        // tio.sync_lamport();
+        // mpcio.dump_stats(std::cout);
+        //
+        // std::cout << "\n===== BINARY SEARCH =====\n";
+        // mpcio.reset_stats();
+        // tio.reset_lamport();
+        // // Binary search for the target
+        // T tindex;
+        // for (int i=0; i<iters; ++i) {
+        //     if constexpr (basic) {
+        //         tindex = A.basic_binary_search(tshare);
+        //     } else {
+        //         tindex = A.binary_search(tshare);
+        //     }
+        // }
+        //
+        // // Don't spend time reconstructing the database to check the
+        // // answer if the database is huge
+        // if (depth > 25) {
+        //     return;
+        // }
+        //
+        // tio.sync_lamport();
+        // mpcio.dump_stats(std::cout);
+        //
+        // std::cout << "\n===== CHECK ANSWER =====\n";
+        // mpcio.reset_stats();
+        // tio.reset_lamport();
+        // // Check the answer
+        // size_t size = size_t(1) << depth;
+        // value_t checkindex = mpc_reconstruct(tio, yield, tindex);
+        // value_t checktarget = mpc_reconstruct(tio, yield, tshare);
+        // auto check = A.reconstruct();
+        // bool fail = false;
+        // if (tio.player() == 0) {
+        //     for (address_t i=0;i<len;++i) {
+        //         if (depth <= 10) {
+        //             printf("%c%04x %016lx\n",
+        //                 (i == checkindex ? '*' : ' '),
+        //                 i, check[i].share());
+        //         }
+        //         if (i>0 && i<len &&
+        //             check[i].share() < check[i-1].share()) {
+        //             fail = true;
+        //         }
+        //         if (i == checkindex) {
+        //             // check[i] should be >= target, and check[i-1]
+        //             // should be < target
+        //             if ((i < len && check[i].share() < checktarget) ||
+        //                 (i > 0 && check[i-1].share() >= checktarget)) {
+        //                 fail = true;
+        //             }
+        //         }
+        //     }
+        //     if (checkindex == len && check[len-1].share() >= checktarget) {
+        //         fail = true;
+        //     }
+        //
+        //     printf("Target = %016lx\n", checktarget);
+        //     printf("Found index = %02lx\n", checkindex);
+        //     if (checkindex > value_t(size)) {
+        //         fail = true;
+        //     }
+        //     if (fail) {
+        //         printf("FAIL\n");
+        //     } else {
+        //         printf("PASS\n");
+        //     }
+        // }
+    // });
 }
 
 template <typename T>

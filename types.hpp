@@ -252,6 +252,17 @@ struct value_t {
         return *this;
     }
 
+    value_t operator^(bool b) const {
+        value_t result;
+        uint64_t bool_as_int = b ? 1 : 0;
+        mpz_t temp;
+        mpz_init(temp);
+        mpz_set_ui(temp, bool_as_int);
+        mpz_xor(result.value, value, temp);
+        mpz_clear(temp);
+
+        return result;
+    }
 };
 
 // Secret-shared bits are of this type.  Note that it is standards

@@ -94,7 +94,7 @@ void BST::pretty_print(const std::vector<Node> &R, value_t node,
     const std::string &prefix = "", bool is_left_child = false,
     bool is_right_child = false)
 {
-    if (node == 0) {
+    if (node == value_t(0)) {
         // NULL pointer
         if (is_left_child) {
             printf("%s\xE2\x95\xA7\n", prefix.c_str()); // ╧
@@ -162,7 +162,7 @@ std::tuple<bool, address_t> BST::check_bst(const std::vector<Node> &R,
     value_t node, value_t min_key = 0, value_t max_key = ~0)
 {
     //printf("node = %ld\n", node);
-    if (node == 0) {
+    if (node == value_t(0)) {
         return { true, 0 };
     }
     const Node &n = R[node];
@@ -170,7 +170,7 @@ std::tuple<bool, address_t> BST::check_bst(const std::vector<Node> &R,
     value_t left_ptr = extractLeftPtr(n.pointers).xshare;
     value_t right_ptr = extractRightPtr(n.pointers).xshare;
     auto [leftok, leftheight ] = check_bst(R, left_ptr, min_key, key);
-    auto [rightok, rightheight ] = check_bst(R, right_ptr, key+1, max_key);
+    auto [rightok, rightheight ] = check_bst(R, right_ptr, key+value_t(1), max_key);
     address_t height = leftheight;
     if (rightheight > height) {
         height = rightheight;
