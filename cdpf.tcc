@@ -16,7 +16,7 @@ T& operator>>(T &is, CDPF &cdpf)
         is.read((char *)&cw, sizeof(cw));
         cdpf.cw.push_back(cw);
     }
-    value_t cfbits = 0;
+    value_t cfbits(0);
     is.read((char *)&cfbits, BITBYTES(depth));
     cdpf.cfbits = cfbits;
     is.read((char *)&cdpf.leaf_cwr, sizeof(cdpf.leaf_cwr));

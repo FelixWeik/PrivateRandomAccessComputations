@@ -196,7 +196,7 @@ inline typename RDPF<WIDTH>::LeafNode RDPF<WIDTH>::descend_to_leaf(
         LeafNode CW = li[maxdepth-parentdepth-1].leaf_cw;
         LeafNode CWR = CW;
         bit_t cfbit = !!(leaf_cfbits &
-            (value_t(1)<<(maxdepth-parentdepth-1)));
+            (value_t(1)<<value_t(maxdepth-parentdepth-1)));
         CWR[0] ^= lsb128_mask[cfbit];
         prgout ^= (whichchild ? CWR : CW);
     }
@@ -823,7 +823,7 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
             tio.recv_peer(&peer_low_sum, sizeof(peer_low_sum));
             low_sum += peer_low_sum;
             // The low_sum had better be odd
-            assert(low_sum & 1);
+            assert(low_sum & value_t(1));
             li.unit_sum_inverse = inverse_value_t(low_sum);
         }
     } else if constexpr (!std::is_same_v<NT, DPFnode>) {
@@ -915,7 +915,7 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
                     create_level(tio, yield, curlevel, nextlevel, player, level,
                         depth, bs_choice, CW, cfbit, save_expansion, noleafinfo,
                         aes_ops);
-                    cfbits |= (value_t(cfbit)<<level);
+                    cfbits |= (value_t(cfbit)<<value_t(level));
                     if (player < 2) {
                         cw.push_back(CW);
                     }
@@ -930,7 +930,7 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
                     create_level(tio, yield, curlevel, leaflevel, player,
                         level, depth, bs_choice, CW, cfbit, save_expansion,
                         li[depth-level-1], aes_ops);
-                    leaf_cfbits |= (value_t(cfbit)<<(depth-level-1));
+                    leaf_cfbits |= (value_t(cfbit)<<value_t(depth-level-1));
                     li[depth-level-1].leaf_cw = CW;
                 });
         }

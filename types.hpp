@@ -24,10 +24,14 @@
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
 struct value_t {
-    mpz_t value; // GMP-Zahl
+    mpz_t value;
 
     value_t() {
         mpz_init2(value, VALUE_BITS);
+    }
+
+    value_t(int x) {
+        mpz_init_set_si(value, x);  // Initialisiere mit int-Wert
     }
 
     value_t(const value_t& other) {
@@ -42,10 +46,9 @@ struct value_t {
         return *this;
     }
 
-    template<typename T>
-    value_t(T val) {
-        mpz_init2(value, VALUE_BITS);
-        mpz_set_ui(value, static_cast<unsigned long>(val));
+    value_t& operator=(int x) {
+        mpz_set_si(value, x);  // GMP-Zahl aktualisieren
+        return *this;
     }
 
     ~value_t() {
@@ -275,6 +278,10 @@ struct RegAS {
 
     RegAS() : ashare(0) {}
 
+    RegAS(const value_t& a) {
+        ashare = a;
+    }
+
     inline value_t share() const { return ashare; }
     void set(value_t s) { ashare = s; }
 
@@ -384,7 +391,7 @@ struct RegAS {
 
 inline value_t combine(const RegAS &A, const RegAS &B,
         nbits_t nbits = VALUE_BITS) {
-    value_t mask = ~0;
+    value_t mask(~0);
     if (nbits < VALUE_BITS) {
         mask = (value_t(1)<<value_t(nbits))-value_t(1);
     }
@@ -435,7 +442,10 @@ struct RegXS {
     value_t xshare;
 
     RegXS() : xshare(0) {}
-    explicit RegXS(const RegBS &b) { xshare = b.bshare ? ~0 : 0; }
+    RegXS(const RegBS &b) { xshare = value_t(b.bshare) ? value_t(~0) : value_t(0); }
+    RegXS(const value_t &x) {
+        xshare = x;
+    }
 
     [[nodiscard]] value_t share() const { return xshare; }
     void set(const value_t& s) { xshare = s; }
@@ -590,7 +600,7 @@ struct RegXS {
 
 inline value_t combine(const RegXS &A, const RegXS &B,
         nbits_t nbits = VALUE_BITS) {
-    value_t mask = ~0;
+    value_t mask(~0);
     if (nbits < VALUE_BITS) {
         mask = (value_t(1)<<value_t(nbits))-value_t(1);
     }

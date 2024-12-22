@@ -531,15 +531,15 @@ struct RDPF2of3 {
     // Additive share of the scaling value M_as such that the high words
     // of the leaf values for P0 and P1 add to M_as * e_{target}
     inline void scaled_value(RegASWP &v) const {
-        std::get<0>(v) = dpf0.scaled_sum;
-        std::get<1>(v) = dpf1.scaled_sum;
+        std::get<0>(v)[0] = dpf0.scaled_sum[0];
+        std::get<1>(v)[0] = dpf1.scaled_sum[0];
     }
 
     // XOR share of the scaling value M_xs such that the high words
     // of the leaf values for P0 and P1 XOR to M_xs * e_{target}
     inline void scaled_value(RegXSWP &v) const {
-        std::get<0>(v) = dpf0.scaled_xor;
-        std::get<1>(v) = dpf1.scaled_xor;
+        std::get<0>(v)[0] = dpf0.scaled_xor[0];
+        std::get<1>(v)[0] = dpf1.scaled_xor[0];
     }
 
     // Get the additive-shared unit vector entry from the leaf node
