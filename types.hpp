@@ -174,8 +174,79 @@ struct value_t {
 
     value_t operator^(const value_t& other) const {
         value_t result;
-        mpz_xor(result.value, this->value, other.value); // Führe bitweisen XOR durch
+        mpz_xor(result.value, this->value, other.value);
         return result;
+    }
+
+    value_t operator-() const {
+        value_t result;
+        mpz_neg(result.value, this->value);
+        return result;
+    }
+
+    bool operator!() const {
+        return mpz_cmp_ui(this->value, 0) == 0;
+    }
+
+    value_t& operator|=(const value_t& other) {
+        mpz_ior(this->value, this->value, other.value);
+        return *this;
+    }
+
+    explicit operator bool() const {
+        return mpz_cmp_ui(this->value, 0) != 0;
+    }
+
+    operator unsigned int() const {
+        return mpz_get_ui(this->value);
+    }
+
+    value_t& operator%=(const value_t& other) {
+        mpz_mod(this->value, this->value, other.value);
+        return *this;
+    }
+
+    bool operator==(unsigned int val) const {
+        value_t temp(val);
+        return *this == temp;
+    }
+
+    bool operator!=(unsigned int val) const {
+        value_t temp(val);
+        return *this != temp;
+    }
+
+    bool operator<(unsigned int val) const {
+        value_t temp(val);
+        return *this < temp;
+    }
+
+    bool operator>(unsigned int val) const {
+        value_t temp(val);
+        return *this > temp;
+    }
+
+    bool operator<=(unsigned int val) const {
+        value_t temp(val);
+        return *this <= temp;
+    }
+
+    bool operator>=(unsigned int val) const {
+        value_t temp(val);
+        return *this >= temp;
+    }
+
+    value_t operator&(unsigned int val) const {
+        value_t temp(val);
+        value_t result;
+        mpz_and(result.value, this->value, temp.value);
+        return result;
+    }
+
+    value_t& operator&=(unsigned int val) {
+        value_t temp(val);
+        mpz_and(this->value, this->value, temp.value);
+        return *this;
     }
 
 };
@@ -196,7 +267,7 @@ using nbits_t = uint64_t;
 
 // A mask of this many bits; the test is to prevent 1<<nbits from
 // overflowing if nbits == VALUE_BITS
-#define MASKBITS(nbits) (((nbits) < VALUE_BITS) ? (value_t(1)<<(nbits))-1 : ~0)
+#define MASKBITS(nbits) (((static_cast<unsigned int>(nbits)) < VALUE_BITS) ? (value_t(1)<<(static_cast<unsigned int>(nbits)))-value_t(1) : value_t(~0))
 
 // The type of register holding an additive share of a value
 struct RegAS {
@@ -315,7 +386,7 @@ inline value_t combine(const RegAS &A, const RegAS &B,
         nbits_t nbits = VALUE_BITS) {
     value_t mask = ~0;
     if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<nbits)-1;
+        mask = (value_t(1)<<value_t(nbits))-value_t(1);
     }
     return (A.ashare + B.ashare) & mask;
 }
@@ -521,7 +592,7 @@ inline value_t combine(const RegXS &A, const RegXS &B,
         nbits_t nbits = VALUE_BITS) {
     value_t mask = ~0;
     if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<nbits)-1;
+        mask = (value_t(1)<<value_t(nbits))-value_t(1);
     }
     return (A.xshare ^ B.xshare) & mask;
 }
@@ -908,7 +979,7 @@ using DPFnode = __m128i;
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
-    A ^= lsb128_mask[B];
+    A = _mm_xor_si128(lsb128_mask[B], A);
     return A;
 }
 
