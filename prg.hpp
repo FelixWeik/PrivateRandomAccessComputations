@@ -32,7 +32,7 @@ static inline void prg(__m128i &out, __m128i seed, bool whichchild,
     __m128i in = set_lsb(seed, whichchild);
     __m128i mid;
     AES_ECB_encrypt(mid, set_lsb(seed, whichchild), prgkey.k, aes_ops);
-    out = mid ^ in;
+    out = _mm_xor_si128(mid, in);
 }
 
 // Compute both children of node seed
@@ -44,8 +44,8 @@ static inline void prgboth(__m128i &left, __m128i &right, __m128i seed,
     __m128i midl, midr;
     AES_ECB_encrypt(midl, inl, prgkey.k, aes_ops);
     AES_ECB_encrypt(midr, inr, prgkey.k, aes_ops);
-    left = midl ^ inl;  // XORs the ciphertext with the plaintext (OTP?)
-    right = midr ^ inr;
+    left = _mm_xor_si128(midl, inl);  // XORs the ciphertext with the plaintext (OTP?)
+    right = _mm_xor_si128(midr, inr);
 }
 
 // Compute one of the leaf children of node seed; whichchild=0 for
@@ -63,12 +63,12 @@ static inline void prg(std::array<__m128i,LWIDTH> &out,
     if (LWIDTH > 2) {
         AES_ECB_encrypt(mid2, set_lsb(seed, whichchild), leafprgkeys[2].k, aes_ops);
     }
-    out[0] = mid0 ^ in;
+    out[0] = _mm_xor_si128(mid0, in);
     if (LWIDTH > 1) {
-        out[1] = mid1 ^ in;
+        out[1] = _mm_xor_si128(mid1, in);
     }
     if (LWIDTH > 2) {
-        out[2] = mid2 ^ in;
+        out[2] = _mm_xor_si128(mid2, in);
     }
 }
 
@@ -91,15 +91,15 @@ static inline void prgboth(std::array<__m128i,LWIDTH> &left,
         AES_ECB_encrypt(midl2, inl, leafprgkeys[2].k, aes_ops);
         AES_ECB_encrypt(midr2, inr, leafprgkeys[2].k, aes_ops);
     }
-    left[0] = midl0 ^ inl;
-    right[0] = midr0 ^ inr;
+    left[0] = _mm_xor_si128(midl0, inl);
+    right[0] = _mm_xor_si128(midr0, inr);
     if (LWIDTH > 1) {
-        left[1] = midl1 ^ inl;
-        right[1] = midr1 ^ inr;
+        left[1] = _mm_xor_si128(midl1, inl);
+        right[1] = _mm_xor_si128(midr1, inr);
     }
     if (LWIDTH > 2) {
-        left[2] = midl2 ^ inl;
-        right[2] = midr2 ^ inr;
+        left[2] = _mm_xor_si128(midl2, inl);
+        right[2] = _mm_xor_si128(midr2, inr);
     }
 }
 

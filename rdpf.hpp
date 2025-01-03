@@ -17,7 +17,7 @@
 // it's the same memory location.  The same RDPF can also be configured
 // to allow for WIDTH independent updates; if you otherwise would try to
 // reuse the same RDPF for multiple updates of the same memory location,
-// you would leak the difference between the update _values_.  Typically
+// you would leak the difference between the update _values_. Typically,
 // WIDTH=1, since most RDPFs are not reused at all.
 //
 // We implement this by have a "wide" LeafNode type that can store one
