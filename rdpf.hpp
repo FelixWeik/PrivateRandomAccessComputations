@@ -51,6 +51,7 @@ struct RDPF : public DPF {
         LeafNode leaf_cw;
         // The amount we have to scale the low words of the leaf values by
         // to get additive shares of a unit vector (value is 64-bit vector)
+        // unit vector is equal to the shifting vector (which itself is a unit vector)
         value_t unit_sum_inverse;
         // Additive share of the scaling values M_as such that the high words
         // of the WIDTH leaf values for P0 and P1 add to M_as * e_{target}

@@ -344,7 +344,7 @@ Duoram<T>::Shape::MemRefS<U,FT,FST,Sh,WIDTH>::operator FT()
             // The values from the two DPFs, which will each be of type T
             std::tuple<FT,FT> V;
             dp.unit(V, leaf);
-            auto [V0, V1] = V;
+            auto [V0, V1] = V; // hält die jeweiligen unit vektoren der leafs von v0 bzw v1
             // References to the appropriate cells in our database, our
             // blind, and our copy of the peer's blinded database
             auto [DB, BL, PBD] = shape.get_comp(i, fieldsel);
