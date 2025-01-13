@@ -20,169 +20,173 @@
 #define VALUE_BITS 64
 #endif
 
-// Values in MPC secret-shared memory are of this type.
-// This is the type of the underlying shared value, not the types of the
-// shares themselves.
-struct value_t {
+#ifndef LABEL_BLOCKS
+#define LABEL_BLOCKS ((VALUE_BITS)/(64))
+#endif
+
+// Basic Wrapper for a GMP (mpz_t) value
+// Can be templated to match certain size
+template <unsigned int BIT_SIZE>
+struct value_wrapper {
     mpz_t value;
 
-    value_t() {
-        mpz_init2(value, VALUE_BITS);
+    value_wrapper() {
+        mpz_init2(value, BIT_SIZE);
     }
 
-    value_t(int x) {
-        mpz_init_set_si(value, x);  // Initialisiere mit int-Wert
+    value_wrapper(int x) {
+        mpz_init_set_si(value, x);
     }
 
-    value_t(const value_t& other) {
-        mpz_init2(value, VALUE_BITS);
+    value_wrapper(const value_wrapper& other) {
+        mpz_init2(value, BIT_SIZE);
         mpz_set(value, other.value);
     }
 
-    value_t& operator=(const value_t& other) {
+    value_wrapper& operator=(const value_wrapper& other) {
         if (this != &other) {
             mpz_set(value, other.value);
         }
         return *this;
     }
 
-    value_t& operator=(int x) {
-        mpz_set_si(value, x);  // GMP-Zahl aktualisieren
+    value_wrapper& operator=(int x) {
+        mpz_set_si(value, x);
         return *this;
     }
 
-    ~value_t() {
+    ~value_wrapper() {
         mpz_clear(value);
     }
 
-    value_t operator+(const value_t& other) const {
-        value_t result;
+    value_wrapper operator+(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_add(result.value, this->value, other.value);
         return result;
     }
 
-    value_t operator-(const value_t& other) const {
-        value_t result;
+    value_wrapper operator-(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_sub(result.value, this->value, other.value);
         return result;
     }
 
-    value_t operator*(const value_t& other) const {
-        value_t result;
+    value_wrapper operator*(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_mul(result.value, this->value, other.value);
         return result;
     }
 
-    value_t operator/(const value_t& other) const {
-        value_t result;
+    value_wrapper operator/(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_fdiv_q(result.value, this->value, other.value);
         return result;
     }
 
-    value_t operator%(const value_t& other) const {
-        value_t result;
+    value_wrapper operator%(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_mod(result.value, this->value, other.value);
         return result;
     }
 
-    bool operator==(const value_t& other) const {
+    bool operator==(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) == 0;
     }
 
-    bool operator!=(const value_t& other) const {
+    bool operator!=(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) != 0;
     }
 
-    bool operator<(const value_t& other) const {
+    bool operator<(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) < 0;
     }
 
-    bool operator>(const value_t& other) const {
+    bool operator>(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) > 0;
     }
 
-    bool operator<=(const value_t& other) const {
+    bool operator<=(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) <= 0;
     }
 
-    bool operator>=(const value_t& other) const {
+    bool operator>=(const value_wrapper& other) const {
         return mpz_cmp(this->value, other.value) >= 0;
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const value_t& val) {
+    friend std::ostream& operator<<(std::ostream& os, const value_wrapper& val) {
         char* str = mpz_get_str(nullptr, 10, val.value);
         os << str;
         free(str);
         return os;
     }
 
-    value_t operator<<(unsigned int shift) const {
-        value_t result;
+    value_wrapper operator<<(unsigned int shift) const {
+        value_wrapper result;
         mpz_mul_2exp(result.value, this->value, shift);
         return result;
     }
 
-    value_t operator>>(unsigned int shift) const {
-        value_t result;
+    value_wrapper operator>>(unsigned int shift) const {
+        value_wrapper result;
         mpz_fdiv_q_2exp(result.value, this->value, shift);
         return result;
     }
 
-    value_t& operator*=(const value_t& other) {
+    value_wrapper& operator*=(const value_wrapper& other) {
         mpz_mul(this->value, this->value, other.value);
         return *this;
     }
 
-    value_t& operator<<=(unsigned int shift) {
+    value_wrapper& operator<<=(unsigned int shift) {
         mpz_mul_2exp(this->value, this->value, shift);
         return *this;
     }
 
-    value_t& operator>>=(unsigned int shift) {
+    value_wrapper& operator>>=(unsigned int shift) {
         mpz_fdiv_q_2exp(this->value, this->value, shift);
         return *this;
     }
 
-    value_t& operator^=(const value_t& other) {
+    value_wrapper& operator^=(const value_wrapper& other) {
         mpz_xor(this->value, this->value, other.value);
         return *this;
     }
 
-    value_t& operator&=(const value_t& other) {
+    value_wrapper& operator&=(const value_wrapper& other) {
         mpz_and(this->value, this->value, other.value);
         return *this;
     }
 
-    value_t operator&(const value_t& other) const {
-        value_t result;
+    value_wrapper operator&(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_and(result.value, this->value, other.value);
         return result;
     }
 
-    value_t& operator+=(const value_t& other) {
+    value_wrapper& operator+=(const value_wrapper& other) {
         mpz_add(this->value, this->value, other.value);
         return *this;
     }
 
-    value_t& operator-=(const value_t& other) {
+    value_wrapper& operator-=(const value_wrapper& other) {
         mpz_sub(this->value, this->value, other.value);
         return *this;
     }
 
     void dump() const {
         char* str = mpz_get_str(nullptr, 10, this->value);
-        std::cout << "value_t: " << str << std::endl;
+        std::cout << "value: " << str << std::endl;
         free(str);
     }
 
-    value_t operator^(const value_t& other) const {
-        value_t result;
+    value_wrapper operator^(const value_wrapper& other) const {
+        value_wrapper result;
         mpz_xor(result.value, this->value, other.value);
         return result;
     }
 
-    value_t operator-() const {
-        value_t result;
+    value_wrapper operator-() const {
+        value_wrapper result;
         mpz_neg(result.value, this->value);
         return result;
     }
@@ -191,7 +195,7 @@ struct value_t {
         return mpz_cmp_ui(this->value, 0) == 0;
     }
 
-    value_t& operator|=(const value_t& other) {
+    value_wrapper& operator|=(const value_wrapper& other) {
         mpz_ior(this->value, this->value, other.value);
         return *this;
     }
@@ -204,56 +208,56 @@ struct value_t {
         return mpz_get_ui(this->value);
     }
 
-    value_t& operator%=(const value_t& other) {
+    value_wrapper& operator%=(const value_wrapper& other) {
         mpz_mod(this->value, this->value, other.value);
         return *this;
     }
 
     bool operator==(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this == temp;
     }
 
     bool operator!=(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this != temp;
     }
 
     bool operator<(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this < temp;
     }
 
     bool operator>(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this > temp;
     }
 
     bool operator<=(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this <= temp;
     }
 
     bool operator>=(unsigned int val) const {
-        value_t temp(val);
+        value_wrapper temp(val);
         return *this >= temp;
     }
 
-    value_t operator&(unsigned int val) const {
-        value_t temp(val);
-        value_t result;
+    value_wrapper operator&(unsigned int val) const {
+        value_wrapper temp(val);
+        value_wrapper result;
         mpz_and(result.value, this->value, temp.value);
         return result;
     }
 
-    value_t& operator&=(unsigned int val) {
-        value_t temp(val);
+    value_wrapper& operator&=(unsigned int val) {
+        value_wrapper temp(val);
         mpz_and(this->value, this->value, temp.value);
         return *this;
     }
 
-    value_t operator^(bool b) const {
-        value_t result;
+    value_wrapper operator^(bool b) const {
+        value_wrapper result;
         uint64_t bool_as_int = b ? 1 : 0;
         mpz_t temp;
         mpz_init(temp);
@@ -264,6 +268,11 @@ struct value_t {
         return result;
     }
 };
+
+// Values in MPC secret-shared memory are of this type.
+// This is the type of the underlying shared value, not the types of the
+// shares themselves.
+using value_t = value_wrapper<VALUE_BITS>;
 
 // Secret-shared bits are of this type.  Note that it is standards
 // compliant to treat a bool as an unsigned integer type with values 0
@@ -995,12 +1004,18 @@ struct AndTripleName { static constexpr const char *name = "a"; };
 // The type of nodes in a DPF.  This must be at least as many bits as
 // the security parameter, and at least twice as many bits as value_t.
 
-using DPFnode = __m128i;
+using DPFnode = value_wrapper<2*VALUE_BITS>;
 
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
-    A = _mm_xor_si128(lsb128_mask[B], A);
+    mpz_t mask;
+    mpz_init2(mask, 2*VALUE_BITS);
+    mpz_set_ui(mask, B);
+
+    mpz_xor(A.value, A.value, mask);
+
+    mpz_clear(mask);
     return A;
 }
 
