@@ -15,18 +15,9 @@
 
 // The number of bits in an MPC secret-shared memory word
 
-#ifndef VALUE_BITS
-#define VALUE_BITS 64
-#endif
-
 #ifndef LABEL_BLOCKS
 #define LABEL_BLOCKS ((VALUE_BITS)/(64))
 #endif
-
-// Values in MPC secret-shared memory are of this type.
-// This is the type of the underlying shared value, not the types of the
-// shares themselves.
-using value_t = value_wrapper<VALUE_BITS>;
 
 // Secret-shared bits are of this type.  Note that it is standards
 // compliant to treat a bool as an unsigned integer type with values 0
@@ -691,7 +682,13 @@ inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 template <typename S, size_t N>
 inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 {
-    A[0] ^= lsb128_mask[B];
+    mpz_t value;
+    if (B) {
+        mpz_set_ui(value, 1);
+    } else {
+        mpz_set_ui(value, 0);
+    }
+    mpz_xor(A[0].value, A[0].value, value);
     return A;
 }
 
@@ -758,8 +755,6 @@ struct AndTripleName { static constexpr const char *name = "a"; };
 // The type of nodes in a DPF.  This must be at least as many bits as
 // the security parameter, and at least twice as many bits as value_t.
 
-using DPFnode = value_wrapper<2*VALUE_BITS>;
-
 // XOR the bit B into the low bit of A
 inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 {
@@ -771,6 +766,56 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 
     mpz_clear(mask);
     return A;
+}
+
+template <unsigned int N>
+inline std::array<__m128i, N> split_dpfnode_to_m128i(const DPFnode& dpfnode) {
+    std::array<__m128i, N> vec;
+    int bits_per_block = 128;
+
+    mpz_t value;
+    mpz_init(value);
+    mpz_set(value, dpfnode.value);
+
+    mpz_t mask;
+    mpz_init(mask);
+    mpz_set_ui(mask, 1);
+    mpz_mul_2exp(mask, mask, bits_per_block);
+
+    for (size_t i = 0; i < N; ++i) {
+        mpz_t block;
+        mpz_init(block);
+        mpz_fdiv_q_2exp(block, value, bits_per_block * i);
+        vec[i] = _mm_set_epi64x(mpz_get_ui(block), mpz_get_ui(block));
+        mpz_clear(block);
+    }
+    mpz_clear(value);
+    mpz_clear(mask);
+    return vec;
+}
+
+template <unsigned int N>
+inline DPFnode combine_m128i_to_dpfnode(const std::array<__m128i, N>& vec) {
+    mpz_t result;
+    mpz_init(result);
+    mpz_set_ui(result, 0);  // Setze initialen Wert auf 0
+
+    for (size_t i = 0; i < N; ++i) {
+        // Extrahiere die 128 Bits aus dem __m128i Vektor
+        uint64_t low = _mm_cvtsi128_si64x(vec[i]);
+        uint64_t high = _mm_cvtsi128_si64x(_mm_srli_si128(vec[i], 8));
+
+        // Verschiebe die extrahierten Bits und kombiniere sie in result
+        mpz_mul_2exp(result, result, 128);  // Platz für die neuen 128 Bits schaffen
+        mpz_add_ui(result, result, low);   // Füge den unteren 64-Bit Teil hinzu
+        mpz_mul_2exp(result, result, 64);  // Platz für die oberen 64 Bits schaffen
+        mpz_add_ui(result, result, high);  // Füge den oberen 64-Bit Teil hinzu
+    }
+
+    DPFnode res(result);
+    mpz_clear(result);
+
+    return res;
 }
 
 // A Select triple for type V (V is DPFnode, value_t, or bit_t) is a

@@ -1,6 +1,10 @@
 #ifndef TYPES_TCC
 #define TYPES_TCC
 
+#ifndef VALUE_BITS
+#define VALUE_BITS 64
+#endif
+
 #include <gmp.h>
 
 // Basic Wrapper for a GMP (mpz_t) value
@@ -20,6 +24,10 @@ struct value_wrapper {
     value_wrapper(const value_wrapper& other) {
         mpz_init2(value, BIT_SIZE);
         mpz_set(value, other.value);
+    }
+
+    value_wrapper(mpz_t x) {
+        mpz_init_set(value, x);
     }
 
     value_wrapper& operator=(const value_wrapper& other) {
@@ -247,5 +255,12 @@ struct value_wrapper {
         return result;
     }
 };
+
+using DPFnode = value_wrapper<2*VALUE_BITS>;
+
+// Values in MPC secret-shared memory are of this type.
+// This is the type of the underlying shared value, not the types of the
+// shares themselves.
+using value_t = value_wrapper<VALUE_BITS>;
 
 #endif
