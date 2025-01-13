@@ -1,6 +1,7 @@
 // Templated method implementations for rdpf.hpp
 
 #include "mpcops.hpp"
+#include "types.hpp"
 
 // Compute the multiplicative inverse of x mod 2^{VALUE_BITS}
 // This is the same as computing x to the power of
@@ -189,15 +190,15 @@ inline typename RDPF<WIDTH>::LeafNode RDPF<WIDTH>::descend_to_leaf(
     const DPFnode &parent, nbits_t parentdepth, bit_t whichchild,
     size_t &aes_ops) const
 {
-    typename RDPF<WIDTH>::LeafNode prgout;
+    LeafNode prgout;
     bool flag = get_lsb(parent);
-    prg(prgout, parent, whichchild, aes_ops);
+    prg<LWIDTH>(prgout, parent, whichchild, aes_ops);
     if (flag) {
         LeafNode CW = li[maxdepth-parentdepth-1].leaf_cw;
         LeafNode CWR = CW;
         bit_t cfbit = !!(leaf_cfbits &
             (value_t(1)<<value_t(maxdepth-parentdepth-1)));
-        CWR[0] ^= lsb128_mask[cfbit];
+        mpz_xor(CWR[0].value, CWR[0].value, GMPMasks<2*VALUE_BITS>::lsb_mask[cfbit].get_mpz_t());
         prgout ^= (whichchild ? CWR : CW);
     }
     return prgout;
@@ -368,9 +369,8 @@ T& operator>>(T &is, RDPFPair<WIDTH> &rdpfpair)
 }
 
 // Set a DPFnode to zero
-static inline void zero(DPFnode &z)
-{
-    z = _mm_setzero_si128();
+static void zero(DPFnode &z) {
+    mpz_set_ui(z.value, 0);
 }
 
 // Set a LeafNode to zero
@@ -415,7 +415,12 @@ static inline void expand_level_nothreads(size_t start, size_t end,
         */
         NT lchild, rchild;
         // will return lchild ^ lchild_ciphertext and rchild ^ rchild_ciphertext
-        prgboth(lchild, rchild, curlevel[i], laes_ops);
+        if constexpr (std::is_same<NT, DPFnode>::value) {
+            prgboth(lchild, rchild, curlevel[i], laes_ops);
+        } else {
+            const unsigned int width = sizeof(lL) / sizeof(lL[0]);
+            prgboth<width>(lchild, rchild, curlevel[i], laes_ops);
+        }
         lL ^= lchild;  // compound assignemnt operator (bitwise xor) => lL = lL XOR lchild = lchild (lL is zero)
         lR ^= rchild;
         nextlevel[2*i] = lchild;
@@ -728,7 +733,6 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
     // those four nodes to just L0^R0^L1^R1^our_parity^peer_parity
     // = 1 because everything cancels out except player (for which
     // one player is 0 and the other is 1).
-
     bool our_parity_bit = get_lsb(L) ^ get_lsb(R) ^ !!player;
     xor_lsb(R, our_parity_bit);
 

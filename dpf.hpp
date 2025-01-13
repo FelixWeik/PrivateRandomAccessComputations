@@ -72,7 +72,8 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
     if (flag) {
         DPFnode CW = cw[parentdepth];
         bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
-        DPFnode CWR = CW ^ lsb128_mask[cfbit];  // if cfbit = 0 both cws will be equal
+        DPFnode CWR;
+        mpz_xor(CWR.value, CW.value, GMPMasks<2*VALUE_BITS>::lsb_mask[cfbit].get_mpz_t());
         prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;
