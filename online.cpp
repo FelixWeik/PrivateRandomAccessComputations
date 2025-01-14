@@ -937,195 +937,195 @@ static void read_test(MPCIO &mpcio,
     });
 }
 
-static void cdpf_test(MPCIO &mpcio,
-    const PRACOptions &opts, char **args)
-{
-    value_t query, target;
-    int iters = 1;
-    arc4random_buf(&query, sizeof(query));
-    arc4random_buf(&target, sizeof(target));
+// static void cdpf_test(MPCIO &mpcio,
+//     const PRACOptions &opts, char **args)
+// {
+//     value_t query, target;
+//     int iters = 1;
+//     arc4random_buf(&query, sizeof(query));
+//     arc4random_buf(&target, sizeof(target));
+//
+//     if (*args) {
+//         query = strtoull(*args, NULL, 16);
+//         ++args;
+//     }
+//     if (*args) {
+//         target = strtoull(*args, NULL, 16);
+//         ++args;
+//     }
+//     if (*args) {
+//         iters = atoi(*args);
+//         ++args;
+//     }
+//
+//     int num_threads = opts.num_comm_threads;
+//     boost::asio::thread_pool pool(num_threads);
+//     for (int thread_num = 0; thread_num < num_threads; ++thread_num) {
+//         boost::asio::post(pool, [&mpcio, thread_num, query, target, iters] {
+//             MPCTIO tio(mpcio, thread_num);
+//             run_coroutines(tio, [&tio, query, target, iters] (yield_t &yield) {
+//                 size_t &aes_ops = tio.aes_ops();
+//                 for (int i=0;i<iters;++i) {
+//                     if (tio.player() == 2) {
+//                         tio.cdpf(yield);
+//                         auto [ dpf0, dpf1 ] = CDPF::generate(target, aes_ops);
+//                         DPFnode leaf0 = dpf0.leaf(query, aes_ops);
+//                         DPFnode leaf1 = dpf1.leaf(query, aes_ops);
+//                         printf("DPFXOR_{%016lx}(%016lx} = ", target, query);
+//                         // dump_node(_mm_xor_si128(leaf0, leaf1));
+//                     } else {
+//                         CDPF dpf = tio.cdpf(yield);
+//                         printf("ashare = %016lX\nxshare = %016lX\n",
+//                             dpf.as_target.ashare, dpf.xs_target.xshare);
+//                         DPFnode leaf = dpf.leaf(query, aes_ops);
+//                         printf("DPF(%016lx) = ", query);
+//                         dump_node(leaf);
+//                         if (tio.player() == 1) {
+//                             tio.iostream_peer() << leaf;
+//                         } else {
+//                             DPFnode peerleaf;
+//                             tio.iostream_peer() >> peerleaf;
+//                             printf("XOR = ");
+//                             // dump_node(_mm_xor_si128(leaf, peerleaf));
+//                         }
+//                     }
+//                 }
+//             });
+//         });
+//     }
+//     pool.join();
+// }
 
-    if (*args) {
-        query = strtoull(*args, NULL, 16);
-        ++args;
-    }
-    if (*args) {
-        target = strtoull(*args, NULL, 16);
-        ++args;
-    }
-    if (*args) {
-        iters = atoi(*args);
-        ++args;
-    }
+// static int compare_test_one(MPCTIO &tio, yield_t &yield,
+//     value_t target, value_t x)
+// {
+//     int player = tio.player();
+//     size_t &aes_ops = tio.aes_ops();
+//     int res = 1;
+//     if (player == 2) {
+//         // Create a CDPF pair with the given target
+//         auto [dpf0, dpf1] = CDPF::generate(target, aes_ops);
+//         // Send it and a share of x to the computational parties
+//         RegAS x0, x1;
+//         x0.randomize();
+//         x1.set(x-x0.share());
+//         tio.iostream_p0() << dpf0 << x0;
+//         tio.iostream_p1() << dpf1 << x1;
+//     } else {
+//         CDPF dpf;
+//         RegAS xsh;
+//         tio.iostream_server() >> dpf >> xsh;
+//         auto [lt, eq, gt] = dpf.compare(tio, yield, xsh, aes_ops);
+//         RegBS eeq = dpf.is_zero(tio, yield, xsh, aes_ops);
+//         printf("%016lx %016lx %d %d %d %d ", target, x, lt.bshare,
+//             eq.bshare, gt.bshare, eeq.bshare);
+//         // Check the answer
+//         if (player == 1) {
+//             tio.iostream_peer() << xsh << lt << eq << gt << eeq;
+//         } else {
+//             RegAS peer_xsh;
+//             RegBS peer_lt, peer_eq, peer_gt, peer_eeq;
+//             tio.iostream_peer() >> peer_xsh >> peer_lt >> peer_eq >>
+//                 peer_gt >> peer_eeq;
+//             lt ^= peer_lt;
+//             eq ^= peer_eq;
+//             gt ^= peer_gt;
+//             eeq ^= peer_eeq;
+//             xsh += peer_xsh;
+//             int lti = int(lt.bshare);
+//             int eqi = int(eq.bshare);
+//             int gti = int(gt.bshare);
+//             int eeqi = int(eeq.bshare);
+//             x = xsh.share();
+//             printf(": %d %d %d %d ", lti, eqi, gti, eeqi);
+//             bool signbit = (x >> value_t(63));
+//             if (lti + eqi + gti != 1 || eqi != eeqi) {
+//                 printf("INCONSISTENT");
+//                 res = 0;
+//             } else if (x == value_t(0) && eqi) {
+//                 printf("=");
+//             } else if (!signbit && gti) {
+//                 printf(">");
+//             } else if (signbit && lti) {
+//                 printf("<");
+//             } else {
+//                 printf("INCORRECT");
+//                 res = 0;
+//             }
+//         }
+//         printf("\n");
+//     }
+//     return res;
+// }
 
-    int num_threads = opts.num_comm_threads;
-    boost::asio::thread_pool pool(num_threads);
-    for (int thread_num = 0; thread_num < num_threads; ++thread_num) {
-        boost::asio::post(pool, [&mpcio, thread_num, query, target, iters] {
-            MPCTIO tio(mpcio, thread_num);
-            run_coroutines(tio, [&tio, query, target, iters] (yield_t &yield) {
-                size_t &aes_ops = tio.aes_ops();
-                for (int i=0;i<iters;++i) {
-                    if (tio.player() == 2) {
-                        tio.cdpf(yield);
-                        auto [ dpf0, dpf1 ] = CDPF::generate(target, aes_ops);
-                        DPFnode leaf0 = dpf0.leaf(query, aes_ops);
-                        DPFnode leaf1 = dpf1.leaf(query, aes_ops);
-                        printf("DPFXOR_{%016lx}(%016lx} = ", target, query);
-                        // dump_node(_mm_xor_si128(leaf0, leaf1));
-                    } else {
-                        CDPF dpf = tio.cdpf(yield);
-                        printf("ashare = %016lX\nxshare = %016lX\n",
-                            dpf.as_target.ashare, dpf.xs_target.xshare);
-                        DPFnode leaf = dpf.leaf(query, aes_ops);
-                        printf("DPF(%016lx) = ", query);
-                        dump_node(leaf);
-                        if (tio.player() == 1) {
-                            tio.iostream_peer() << leaf;
-                        } else {
-                            DPFnode peerleaf;
-                            tio.iostream_peer() >> peerleaf;
-                            printf("XOR = ");
-                            // dump_node(_mm_xor_si128(leaf, peerleaf));
-                        }
-                    }
-                }
-            });
-        });
-    }
-    pool.join();
-}
+// static int compare_test_target(MPCTIO &tio, yield_t &yield,
+//     value_t target, value_t x)
+// {
+//     // int res = 1;
+//     // res &= compare_test_one(tio, yield, target, x);
+//     // res &= compare_test_one(tio, yield, target, 0);
+//     // res &= compare_test_one(tio, yield, target, 1);
+//     // res &= compare_test_one(tio, yield, target, 15);
+//     // res &= compare_test_one(tio, yield, target, 16);
+//     // res &= compare_test_one(tio, yield, target, 17);
+//     // res &= compare_test_one(tio, yield, target, -1);
+//     // res &= compare_test_one(tio, yield, target, -15);
+//     // res &= compare_test_one(tio, yield, target, -16);
+//     // res &= compare_test_one(tio, yield, target, -17);
+//     // // res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63)));
+//     // res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))+value_t(1));
+//     // res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))-value_t(1));
+//     return res;
+// }
 
-static int compare_test_one(MPCTIO &tio, yield_t &yield,
-    value_t target, value_t x)
-{
-    int player = tio.player();
-    size_t &aes_ops = tio.aes_ops();
-    int res = 1;
-    if (player == 2) {
-        // Create a CDPF pair with the given target
-        auto [dpf0, dpf1] = CDPF::generate(target, aes_ops);
-        // Send it and a share of x to the computational parties
-        RegAS x0, x1;
-        x0.randomize();
-        x1.set(x-x0.share());
-        tio.iostream_p0() << dpf0 << x0;
-        tio.iostream_p1() << dpf1 << x1;
-    } else {
-        CDPF dpf;
-        RegAS xsh;
-        tio.iostream_server() >> dpf >> xsh;
-        auto [lt, eq, gt] = dpf.compare(tio, yield, xsh, aes_ops);
-        RegBS eeq = dpf.is_zero(tio, yield, xsh, aes_ops);
-        printf("%016lx %016lx %d %d %d %d ", target, x, lt.bshare,
-            eq.bshare, gt.bshare, eeq.bshare);
-        // Check the answer
-        if (player == 1) {
-            tio.iostream_peer() << xsh << lt << eq << gt << eeq;
-        } else {
-            RegAS peer_xsh;
-            RegBS peer_lt, peer_eq, peer_gt, peer_eeq;
-            tio.iostream_peer() >> peer_xsh >> peer_lt >> peer_eq >>
-                peer_gt >> peer_eeq;
-            lt ^= peer_lt;
-            eq ^= peer_eq;
-            gt ^= peer_gt;
-            eeq ^= peer_eeq;
-            xsh += peer_xsh;
-            int lti = int(lt.bshare);
-            int eqi = int(eq.bshare);
-            int gti = int(gt.bshare);
-            int eeqi = int(eeq.bshare);
-            x = xsh.share();
-            printf(": %d %d %d %d ", lti, eqi, gti, eeqi);
-            bool signbit = (x >> value_t(63));
-            if (lti + eqi + gti != 1 || eqi != eeqi) {
-                printf("INCONSISTENT");
-                res = 0;
-            } else if (x == value_t(0) && eqi) {
-                printf("=");
-            } else if (!signbit && gti) {
-                printf(">");
-            } else if (signbit && lti) {
-                printf("<");
-            } else {
-                printf("INCORRECT");
-                res = 0;
-            }
-        }
-        printf("\n");
-    }
-    return res;
-}
-
-static int compare_test_target(MPCTIO &tio, yield_t &yield,
-    value_t target, value_t x)
-{
-    int res = 1;
-    res &= compare_test_one(tio, yield, target, x);
-    res &= compare_test_one(tio, yield, target, 0);
-    res &= compare_test_one(tio, yield, target, 1);
-    res &= compare_test_one(tio, yield, target, 15);
-    res &= compare_test_one(tio, yield, target, 16);
-    res &= compare_test_one(tio, yield, target, 17);
-    res &= compare_test_one(tio, yield, target, -1);
-    res &= compare_test_one(tio, yield, target, -15);
-    res &= compare_test_one(tio, yield, target, -16);
-    res &= compare_test_one(tio, yield, target, -17);
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63)));
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))+value_t(1));
-    res &= compare_test_one(tio, yield, target, (value_t(1)<<value_t(63))-value_t(1));
-    return res;
-}
-
-static void compare_test(MPCIO &mpcio,
-    const PRACOptions &opts, char **args)
-{
-    value_t target, x;
-    arc4random_buf(&target, sizeof(target));
-    arc4random_buf(&x, sizeof(x));
-
-    if (*args) {
-        target = strtoull(*args, NULL, 16);
-        ++args;
-    }
-    if (*args) {
-        x = strtoull(*args, NULL, 16);
-        ++args;
-    }
-
-    int num_threads = opts.num_comm_threads;
-    boost::asio::thread_pool pool(num_threads);
-    for (int thread_num = 0; thread_num < num_threads; ++thread_num) {
-        boost::asio::post(pool, [&mpcio, thread_num, target, x] {
-            MPCTIO tio(mpcio, thread_num);
-            run_coroutines(tio, [&tio, target, x] (yield_t &yield) {
-                int res = 1;
-                res &= compare_test_target(tio, yield, target, x);
-                res &= compare_test_target(tio, yield, 0, x);
-                res &= compare_test_target(tio, yield, 1, x);
-                res &= compare_test_target(tio, yield, 15, x);
-                res &= compare_test_target(tio, yield, 16, x);
-                res &= compare_test_target(tio, yield, 17, x);
-                res &= compare_test_target(tio, yield, -1, x);
-                res &= compare_test_target(tio, yield, -15, x);
-                res &= compare_test_target(tio, yield, -16, x);
-                res &= compare_test_target(tio, yield, -17, x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63)), x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))+value_t(1), x);
-                res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))-value_t(1), x);
-                if (tio.player() == 0) {
-                    if (res == 1) {
-                        printf("All tests passed!\n");
-                    } else {
-                        printf("TEST FAILURES\n");
-                    }
-                }
-            });
-        });
-    }
-    pool.join();
-}
+// static void compare_test(MPCIO &mpcio,
+//     const PRACOptions &opts, char **args)
+// {
+//     value_t target, x;
+//     arc4random_buf(&target, sizeof(target));
+//     arc4random_buf(&x, sizeof(x));
+//
+//     if (*args) {
+//         // target = strtoull(*args, NULL, 16);
+//         ++args;
+//     }
+//     if (*args) {
+//         // x = strtoull(*args, NULL, 16);
+//         ++args;
+//     }
+//
+//     int num_threads = opts.num_comm_threads;
+//     boost::asio::thread_pool pool(num_threads);
+//     for (int thread_num = 0; thread_num < num_threads; ++thread_num) {
+//         boost::asio::post(pool, [&mpcio, thread_num, target, x] {
+//             MPCTIO tio(mpcio, thread_num);
+//             run_coroutines(tio, [&tio, target, x] (yield_t &yield) {
+//                 int res = 1;
+//                 res &= compare_test_target(tio, yield, target, x);
+//                 res &= compare_test_target(tio, yield, 0, x);
+//                 res &= compare_test_target(tio, yield, 1, x);
+//                 res &= compare_test_target(tio, yield, 15, x);
+//                 res &= compare_test_target(tio, yield, 16, x);
+//                 res &= compare_test_target(tio, yield, 17, x);
+//                 res &= compare_test_target(tio, yield, -1, x);
+//                 res &= compare_test_target(tio, yield, -15, x);
+//                 res &= compare_test_target(tio, yield, -16, x);
+//                 res &= compare_test_target(tio, yield, -17, x);
+//                 // res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63)), x);
+//                 // res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))+value_t(1), x);
+//                 // res &= compare_test_target(tio, yield, (value_t(1)<<value_t(63))-value_t(1), x);
+//                 if (tio.player() == 0) {
+//                     if (res == 1) {
+//                         printf("All tests passed!\n");
+//                     } else {
+//                         printf("TEST FAILURES\n");
+//                     }
+//                 }
+//             });
+//         });
+//     }
+//     pool.join();
+// }
 
 static void sort_test(MPCIO &mpcio,
     const PRACOptions &opts, char **args)
@@ -1282,10 +1282,10 @@ static void bsearch_test(MPCIO &mpcio,
         ++args;
     }
     if (is_presorted) {
-        target %= (value_t(len) << value_t(16));
+        // target %= (value_t(len) << value_t(16));
     }
     if (*args) {
-        target = strtoull(*args, NULL, 16);
+        // target = strtoull(*args, NULL, 16);
         ++args;
     }
 
@@ -1655,12 +1655,12 @@ void online_main(MPCIO &mpcio, const PRACOptions &opts, char **args)
         } else {
             read_test<RegAS>(mpcio, opts, args);
         }
-    } else if (!strcmp(*args, "cdpftest")) {
-        ++args;
-        cdpf_test(mpcio, opts, args);
-    } else if (!strcmp(*args, "cmptest")) {
-        ++args;
-        compare_test(mpcio, opts, args);
+    // } else if (!strcmp(*args, "cdpftest")) {
+    //     ++args;
+    //     cdpf_test(mpcio, opts, args);
+    // } else if (!strcmp(*args, "cmptest")) {
+    //     ++args;
+    //     compare_test(mpcio, opts, args);
     } else if (!strcmp(*args, "sorttest")) {
         ++args;
         sort_test(mpcio, opts, args);
