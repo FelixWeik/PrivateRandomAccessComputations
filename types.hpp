@@ -150,7 +150,7 @@ struct RegAS {
     }
 
     void dump() const {
-        ashare.dump();
+        std::cout << "Value: " << ashare.get_str() << std::endl;
     }
 };
 
@@ -158,7 +158,7 @@ inline value_t combine(const RegAS &A, const RegAS &B,
         nbits_t nbits = VALUE_BITS) {
     value_t mask(~0);
     if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<value_t(nbits))-value_t(1);
+        mask = value_t(1 << nbits) - 1;
     }
     return (A.ashare + B.ashare) & mask;
 }
@@ -332,7 +332,7 @@ struct RegXS {
 
     RegBS bitat(nbits_t pos) const {
         RegBS bs;
-        bs.set(mpz_tstbit(this->xshare.value, pos) != 0);
+        bs.set(mpz_tstbit(this->xshare.get_mpz_t(), pos) != 0);
         return bs;
     }
 
@@ -351,13 +351,13 @@ struct RegXS {
     }
 
     void dump() const {
-        xshare.dump();
+        std::cout << "Value: " << xshare.get_str() << std::endl;
     }
 
     // Extract a bit share of bit bitnum of the XOR-shared register
     RegBS bit(nbits_t bitnum) const {
         RegBS bs;
-        bs.bshare = mpz_tstbit(this->xshare.value, bitnum) != 0;
+        bs.bshare = mpz_tstbit(this->xshare.get_mpz_t(), bitnum) != 0;
         return bs;
     }
 
@@ -367,7 +367,7 @@ inline value_t combine(const RegXS &A, const RegXS &B,
         nbits_t nbits = VALUE_BITS) {
     value_t mask(~0);
     if (nbits < VALUE_BITS) {
-        mask = (value_t(1)<<value_t(nbits))-value_t(1);
+        mask = value_t(1 << (nbits)) - 1;
     }
     return (A.xshare ^ B.xshare) & mask;
 }
@@ -688,7 +688,7 @@ inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
     } else {
         mpz_set_ui(value, 0);
     }
-    mpz_xor(A[0].value, A[0].value, value);
+    mpz_xor(A[0].get_mpz_t(), A[0].get_mpz_t(), value);
     return A;
 }
 
@@ -762,36 +762,45 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
     mpz_init2(mask, 2*VALUE_BITS);
     mpz_set_ui(mask, B);
 
-    mpz_xor(A.value, A.value, mask);
+    mpz_xor(A.get_mpz_t(), A.get_mpz_t(), mask);
 
     mpz_clear(mask);
     return A;
 }
 
-template <unsigned int N>
-inline std::array<__m128i, N> split_dpfnode_to_m128i(const DPFnode& dpfnode) {
-    std::array<__m128i, N> vec;
+inline std::vector<__m128i> split_dpfnode_to_m128i(const DPFnode& dpfnode) {
+    std::vector<__m128i> res;
     int bits_per_block = 128;
 
     mpz_t value;
     mpz_init(value);
-    mpz_set(value, dpfnode.value);
+    mpz_set(value, dpfnode.get_mpz_t());
 
     mpz_t mask;
     mpz_init(mask);
     mpz_set_ui(mask, 1);
     mpz_mul_2exp(mask, mask, bits_per_block);
 
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < LABEL_BLOCKS; i++) {
         mpz_t block;
         mpz_init(block);
         mpz_fdiv_q_2exp(block, value, bits_per_block * i);
-        vec[i] = _mm_set_epi64x(mpz_get_ui(block), mpz_get_ui(block));
+        res.push_back(_mm_set_epi64x(mpz_get_ui(block), mpz_get_ui(block)));
         mpz_clear(block);
     }
     mpz_clear(value);
     mpz_clear(mask);
-    return vec;
+    return res;
+}
+
+template <size_t WIDTH>
+std::vector<std::vector<__m128i>> split_leafnode_to_m128i(const std::array<DPFnode, WIDTH> &leafnode) {
+    std::vector<std::vector<__m128i>> res;
+    for (auto &dpfnode : leafnode) {
+        auto tmp = split_dpfnode_to_m128i(dpfnode);
+        res.push_back(tmp);
+    }
+    return res;
 }
 
 template <unsigned int N>
@@ -800,7 +809,7 @@ inline DPFnode combine_m128i_to_dpfnode(const std::array<__m128i, N>& vec) {
     mpz_init(result);
     mpz_set_ui(result, 0);  // Setze initialen Wert auf 0
 
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < N; i++) {
         // Extrahiere die 128 Bits aus dem __m128i Vektor
         uint64_t low = _mm_cvtsi128_si64x(vec[i]);
         uint64_t high = _mm_cvtsi128_si64x(_mm_srli_si128(vec[i], 8));

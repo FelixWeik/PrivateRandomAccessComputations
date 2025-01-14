@@ -10,10 +10,10 @@ Duoram<T>::Pad::Pad(Shape &parent, MPCTIO &tio, yield_t &yield,
 {
     int player = tio.player();
     padvalp = new T;
-    padvalp->set(player*padval);
+    padvalp->set(padval*player);
     zerop = new T;
     peerpadvalp = new T;
-    peerpadvalp->set((1-player)*padval);
+    peerpadvalp->set(padval*(1-player));
     this->set_shape_size(padded_size);
 }
 

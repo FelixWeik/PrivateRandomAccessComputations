@@ -76,14 +76,12 @@ const mpz_class GMPMasks<N>::if_mask[2] = {
     create_mask(N)                                 // 0b11...1111
 };
 
-inline mpz_class xor_if(const mpz_class& block1, const mpz_class& block2, const mpz_class& flag) {
-    return block1 ^ (block2 & flag);
-}
-
 template <unsigned int N>
-inline mpz_class xor_if(const mpz_class& block1, const mpz_class& block2, bool flag) {
-    const mpz_class& mask = GMPMasks<N>::if_mask[flag ? 1 : 0];
-    return xor_if(block1, block2, mask);
+mpz_class xor_if(const mpz_class& block1, const mpz_class& block2, bool flag) {
+    if (flag) {
+        return block1 ^ block2;
+    }
+    return 0;
 }
 
 template <unsigned int N, size_t LWIDTH>
@@ -100,68 +98,46 @@ inline std::array<mpz_class, LWIDTH> xor_if(
     return res;
 }
 
-template <unsigned int BIT_SIZE>
-inline uint8_t get_lsb(const value_wrapper<BIT_SIZE>& block, uint8_t bits = 0b01) {
-    mpz_t mask;
-    mpz_init2(mask, BIT_SIZE);
-    mpz_set_ui(mask, bits);
-
-    value_wrapper<BIT_SIZE> result;
-    uint8_t res;
-    mpz_xor(result.value, block.value, mask);
-
-    if (mpz_cmp_ui(result.value, 0) == 0) {
-        mpz_set_ui(result.value, 0);
-        res = 0;
-    } else {
-        mpz_set_ui(result.value, 1);
-        res = 1;
-    }
-
-    mpz_clear(mask);
-    return res;
+uint8_t get_lsb(const mpz_class& block) {
+    return mpz_tstbit(block.get_mpz_t(), 0) != 0;
 }
 
-template <unsigned int BIT_SIZE>
-inline value_wrapper<BIT_SIZE> clear_lsb(const value_wrapper<BIT_SIZE>& block, uint8_t bits = 0b01) {
-    value_wrapper<BIT_SIZE> result;
+inline mpz_class clear_lsb(const mpz_class& block, uint8_t bits = 0b01) {
+    mpz_class result;
     mpz_t mask;
-    mpz_init2(mask, BIT_SIZE);
-    mpz_set_ui(mask, bits);
-    mpz_and(result.value, block.value, mask);
+    mpz_init_set_ui(mask, bits);
+    mpz_and(result.get_mpz_t(), block.get_mpz_t(), mask);
     mpz_clear(mask);
     return result;
 }
 
-template <unsigned int BIT_SIZE>
-inline value_wrapper<BIT_SIZE> set_lsb(const value_wrapper<BIT_SIZE>& block, bool val = true) {
-    value_wrapper<BIT_SIZE> result = clear_lsb(block, 0b01);
+inline mpz_class set_lsb(const mpz_class& block, bool val = true) {
+    mpz_class result(clear_lsb(block, 0b01));
     mpz_t mask;
-    mpz_init2(mask, BIT_SIZE);
-    mpz_set_ui(mask, val ? 0b01 : 0b00);
-    mpz_ior(result.value, result.value, mask);
+    mpz_init_set_ui(mask, val ? 0b01 : 0b00);
+    mpz_ior(result.get_mpz_t(), result.get_mpz_t(), mask);
     mpz_clear(mask);
     return result;
 }
 
-template <unsigned int BIT_SIZE>
-inline uint8_t parity(const value_wrapper<BIT_SIZE>& block) {
-    uint64_t low = mpz_get_ui(block.value);
-    uint64_t high = 0;
-    if (BIT_SIZE > 64) {
-        high = mpz_get_ui(block.value + 1);
-    }
-    return ((__builtin_popcountll(low) ^ __builtin_popcountll(high)) & 1);
+inline uint8_t parity(const mpz_class& block) {
+    mpz_t temp;
+    mpz_init(temp);
+    mpz_set(temp, block.get_mpz_t());
+    size_t popcount = mpz_popcount(temp);
+    mpz_clear(temp);
+    return popcount & 1;
 }
 
 template <unsigned int BIT_SIZE>
-inline uint8_t parity_above(const value_wrapper<BIT_SIZE>& block, uint8_t position) {
+inline uint8_t parity_above(const mpz_class& block, uint8_t position) {
+    uint64_t low = mpz_get_ui(block.get_mpz_t());
     uint64_t high = 0;
-    if (BIT_SIZE > 64) {
-        high = mpz_get_ui(block.value + 1);
-    }
 
-    uint64_t low = mpz_get_ui(block.value);
+    if (BIT_SIZE > 64) {
+        mpz_class high_bits = block >> 64;
+        high = mpz_get_ui(high_bits.get_mpz_t());
+    }
     uint64_t mask = uint64_t(1) << position;
     mask |= (mask - 1);
     mask = ~mask;
@@ -173,14 +149,17 @@ inline uint8_t parity_above(const value_wrapper<BIT_SIZE>& block, uint8_t positi
     }
 }
 
+
 // Return the parity of the number of the number of bits set in block
 // strictly below the given position
 template <unsigned int BIT_SIZE>
-inline uint8_t parity_below(const value_wrapper<BIT_SIZE>& block, uint8_t position) {
-    uint64_t low = mpz_get_ui(block.value);
+inline uint8_t parity_below(const mpz_class& block, uint8_t position) {
+    uint64_t low = mpz_get_ui(block.get_mpz_t());
     uint64_t high = 0;
+
     if (BIT_SIZE > 64) {
-        high = mpz_get_ui(block.value + 1);
+        mpz_class high_bits = block >> 64;
+        high = mpz_get_ui(high_bits.get_mpz_t());
     }
     uint64_t mask = uint64_t(1) << position;
     mask = ~mask;
@@ -193,11 +172,10 @@ inline uint8_t parity_below(const value_wrapper<BIT_SIZE>& block, uint8_t positi
 }
 
 // Return the bit at the given position in block
-template <unsigned int BIT_SIZE>
-inline uint8_t bit_at(const value_wrapper<BIT_SIZE>& block, uint8_t position) {
-    uint64_t value = mpz_get_ui(block.value);
+inline uint8_t bit_at(const mpz_class& block, uint8_t position) {
+    uint64_t value = mpz_get_ui(block.get_mpz_t());
     if (position >= 64) {
-        uint64_t high = mpz_get_ui(block.value + 1);
+        uint64_t high = mpz_get_ui(block.get_mpz_t() + 1);
         return !!(high & (uint64_t(1) << (position - 64)));
     } else {
         return !!(value & (uint64_t(1) << position));
@@ -233,14 +211,14 @@ inline __m128i xor_if(const __m128i & block1, const __m128i & block2, __m128i fl
     return _mm_xor_si128(block1, _mm_and_si128(block2, flag));
 }
 
-inline DPFnode xor_if(const DPFnode & block1, const DPFnode & block2, DPFnode flag){
+inline mpz_class xor_if(const mpz_class & block1, const mpz_class & block2, mpz_class flag){
     mpz_t temp_block2;
 
     mpz_init(temp_block2);
-    mpz_and(temp_block2, block2.value, flag.value);
+    mpz_and(temp_block2, block2.get_mpz_t(), flag.get_mpz_t());
 
-    DPFnode res;
-    mpz_xor(res.value, block1.value, temp_block2);
+    mpz_class res;
+    mpz_xor(res.get_mpz_t(), block1.get_mpz_t(), temp_block2);
 
     mpz_clear(temp_block2);
     return res;
