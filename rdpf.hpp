@@ -103,7 +103,7 @@ struct RDPF : public DPF {
         bool save_expansion = false);
 
     // Do we have a precomputed expansion?
-    inline bool has_expansion() const {
+    bool has_expansion() const {
         return li[maxdepth-curdepth].expansion.size() > 0;
     }
 
@@ -113,7 +113,7 @@ struct RDPF : public DPF {
     }
 
     // The depth
-    inline nbits_t depth() const { return curdepth; }
+    nbits_t depth() const { return curdepth; }
 
     // Set the current depth for an incremental RDPF; 0 means to use
     // maxdepth
@@ -151,7 +151,8 @@ struct RDPF : public DPF {
     // Get the additive-shared unit vector entry from the leaf node
     inline RegAS unit_as(const LeafNode &leaf) const {
         RegAS a;
-        value_t lowword = value_t(_mm_cvtsi128_si64x(leaf[0]));
+        value_t lowword;
+        mpz_mod_2exp(lowword.get_mpz_t(), leaf[0].get_mpz_t(), WIDTH / 2);
         if (whichhalf == 1) {
             lowword = -lowword;
         }
@@ -160,17 +161,16 @@ struct RDPF : public DPF {
     }
 
     // Get the XOR-shared scaled vector entry from the leaf node
-    inline RegXSW scaled_xs(const LeafNode &leaf) const {
+    RegXSW scaled_xs(const LeafNode &leaf) const {
         RegXSW x;
         nbits_t j = 0;
-        value_t highword =
-            value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[0],8)));
+        value_t highword;
+        mpz_fdiv_q_2exp(highword.get_mpz_t(), leaf[0].get_mpz_t(), WIDTH / 2);
         x[j++].xshare = highword;
         for (nbits_t i=1;i<LWIDTH;++i) {
-            value_t lowword =
-                value_t(_mm_cvtsi128_si64x(leaf[i]));
-            value_t highword =
-                value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[i],8)));
+            value_t lowword, highword;
+            mpz_mod_2exp(lowword.get_mpz_t(), leaf[i].get_mpz_t(), WIDTH / 2);
+            mpz_fdiv_q_2exp(highword.get_mpz_t(), leaf[i].get_mpz_t(), WIDTH / 2);
             x[j++].xshare = lowword;
             if (j < WIDTH) {
                 x[j++].xshare = highword;
@@ -183,17 +183,16 @@ struct RDPF : public DPF {
     inline RegASW scaled_as(const LeafNode &leaf) const {
         RegASW a;
         nbits_t j = 0;
-        value_t highword =
-            value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[0],8)));
+        value_t highword;
+        mpz_fdiv_q_2exp(highword.get_mpz_t(), leaf[0].get_mpz_t(), WIDTH / 2);
         if (whichhalf == 1) {
             highword = -highword;
         }
         a[j++].ashare = highword;
         for (nbits_t i=1;i<WIDTH;++i) {
-            value_t lowword =
-                value_t(_mm_cvtsi128_si64x(leaf[i]));
-            value_t highword =
-                value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leaf[i],8)));
+            value_t highword, lowword;
+            mpz_mod_2exp(lowword.get_mpz_t(), leaf[i].get_mpz_t(), WIDTH / 2);
+            mpz_fdiv_q_2exp(highword.get_mpz_t(), leaf[i].get_mpz_t(), WIDTH / 2);
             if (whichhalf == 1) {
                 lowword = -lowword;
                 highword = -highword;
