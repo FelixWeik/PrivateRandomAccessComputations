@@ -9,7 +9,6 @@
 #include "heap.hpp"
 #include "shapes.hpp"
 #include "bst.hpp"
-#include "avl.hpp"
 #include "heapsampler.hpp"
 
 static void online_test(MPCIO &mpcio,
@@ -152,10 +151,11 @@ static void online_test(MPCIO &mpcio,
         printf("SFO: %01X\n", SFO);
         printf("SFS: %01X\n", SFS);
         printf("SX : %016lX\n", SX);
-        printf("\n%016lx\n", S[0]*S[1]-S[2]);
-        printf("%016lx\n", (V*BV)-S[3]);
-        printf("%016lx\n", (SF0*S[4])-S[5]);
-        printf("%016lx\n", S[8]-SX);
+        //      Trick       //
+        // printf("\n%016lx\n", S[0]*S[1]-S[2]);
+        // printf("%016lx\n", (V*BV)-S[3]);
+        // printf("%016lx\n", (S[4]*SF0)-S[5]);
+        // printf("%016lx\n", S[8]-SX);
         delete[] B;
         delete[] S;
     }
@@ -972,7 +972,7 @@ static void cdpf_test(MPCIO &mpcio,
                         DPFnode leaf0 = dpf0.leaf(query, aes_ops);
                         DPFnode leaf1 = dpf1.leaf(query, aes_ops);
                         printf("DPFXOR_{%016lx}(%016lx} = ", target, query);
-                        dump_node(_mm_xor_si128(leaf0, leaf1));
+                        // dump_node(_mm_xor_si128(leaf0, leaf1));
                     } else {
                         CDPF dpf = tio.cdpf(yield);
                         printf("ashare = %016lX\nxshare = %016lX\n",
@@ -986,7 +986,7 @@ static void cdpf_test(MPCIO &mpcio,
                             DPFnode peerleaf;
                             tio.iostream_peer() >> peerleaf;
                             printf("XOR = ");
-                            dump_node(_mm_xor_si128(leaf, peerleaf));
+                            // dump_node(_mm_xor_si128(leaf, peerleaf));
                         }
                     }
                 }
@@ -1242,7 +1242,7 @@ static void pad_test(MPCIO &mpcio,
                 offset = -offset;
             }
             RegAS ind;
-            ind.set(player*i+offset);
+            ind.set(offset+(player*i));
             RegAS v = P[ind];
             if (depth <= 10) {
                 value_t vval = mpc_reconstruct(tio, yield, v);
@@ -1696,12 +1696,12 @@ void online_main(MPCIO &mpcio, const PRACOptions &opts, char **args)
     } else if (!strcmp(*args, "bst")) {
         ++args;
         bst(mpcio, opts, args);
-    } else if (!strcmp(*args, "avl")) {
-        ++args;
-        avl(mpcio, opts, args);
-    } else if (!strcmp(*args, "avl_tests")) {
-        ++args;
-        avl_tests(mpcio, opts, args);
+    // } else if (!strcmp(*args, "avl")) {
+    //     ++args;
+    //     avl(mpcio, opts, args);
+    // } else if (!strcmp(*args, "avl_tests")) {
+    //     ++args;
+    //     avl_tests(mpcio, opts, args);
     } else if (!strcmp(*args, "heap")) {
         ++args;
         Heap(mpcio, opts, args);
