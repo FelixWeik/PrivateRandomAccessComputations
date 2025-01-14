@@ -37,7 +37,7 @@ static inline void prg(__m128i &out, __m128i seed, bool whichchild,
 }
 
 static void prg(DPFnode &out, const DPFnode& seed, bool whichchild, size_t &aes_ops) {
-    auto vec = split_dpfnode_to_m128i<LABEL_BLOCKS>(seed);
+    auto vec = split_dpfnode_to_m128i(seed);
     std::array<__m128i, LABEL_BLOCKS> res_vec{};
 
     for (size_t i = 0; i < LABEL_BLOCKS; i++) {
@@ -52,7 +52,7 @@ static void prg(DPFnode &out, const DPFnode& seed, bool whichchild, size_t &aes_
 
 // Compute both children of node seed
 static void prgboth(DPFnode &left, DPFnode &right, const DPFnode &seed, size_t &aes_ops) {
-    auto seed_vec = split_dpfnode_to_m128i<LABEL_BLOCKS>(seed);
+    auto seed_vec = split_dpfnode_to_m128i(seed);
     std::array<__m128i, LABEL_BLOCKS> left_vec{}, right_vec{};
 
     for (size_t i = 0; i < LABEL_BLOCKS; i++) {
@@ -73,7 +73,7 @@ static void prgboth(DPFnode &left, DPFnode &right, const DPFnode &seed, size_t &
 // the left child, 1 for the right child
 template <size_t LWIDTH>
 static void prg(std::array<DPFnode, LWIDTH> &out, const DPFnode &seed, bool whichchild, size_t &aes_ops) {
-    auto seed_vec = split_dpfnode_to_m128i<LWIDTH>(seed);
+    auto seed_vec = split_dpfnode_to_m128i(seed);
 
     std::vector<std::array<__m128i, LWIDTH>> small_leafs;
 
@@ -143,48 +143,9 @@ static inline void prg(std::array<__m128i,LWIDTH> &out,
     }
 }
 
-template <size_t LWIDTH>
-static void prgboth(std::array<DPFnode,LWIDTH> &left,
-    std::array<DPFnode,LWIDTH> &right, const DPFnode& seed, size_t &aes_ops) {
-    auto seed_vec = split_dpfnode_to_m128i<LWIDTH>(seed);
-
-    std::vector<std::array<__m128i, LWIDTH>> left_res{}, right_res{};
-
-    for (__m128i &seed_elmt : seed_vec) {
-        std::array<__m128i, LWIDTH> left_elmt, right_elmt;
-        prgboth(left_elmt, right_elmt, seed_elmt, aes_ops);
-        left_res.push_back(left_elmt);
-        right_res.push_back(right_elmt);
-    }
-
-    std::vector<std::vector<__m128i>> extracted_elements_left(LWIDTH), extracted_elements_right(LWIDTH);
-
-    for (size_t i = 0; i < LWIDTH; ++i) {
-        for (const auto& arr : left_res) {
-            extracted_elements_left[i].push_back(arr[i]);
-        }
-        for (const auto& arr : right_res) {
-            extracted_elements_right[i].push_back(arr[i]);
-        }
-    }
-
-    std::array<DPFnode,LWIDTH> left_leaf, right_leaf;
-    for (size_t i = 0; i < LWIDTH; i++) {
-        std::array<__m128i, LWIDTH> elmts_left{}, elmts_right{};
-        for (size_t j = 0; j < LWIDTH; j++) {
-            elmts_left[j] = extracted_elements_left[i][j];
-            elmts_right[j] = extracted_elements_right[i][j];
-        }
-        left_leaf[i] = combine_m128i_to_dpfnode<LWIDTH>(elmts_left);
-        right_leaf[i] = combine_m128i_to_dpfnode<LWIDTH>(elmts_right);
-    }
-    right = right_leaf;
-    left = left_leaf;
-}
-
 // Compute both of the leaf children of node seed
 template <size_t LWIDTH>
-static inline void prgboth(std::array<__m128i,LWIDTH> &left,
+static inline void prghelper(std::array<__m128i,LWIDTH> &left,
     std::array<__m128i,LWIDTH> &right, __m128i seed, size_t &aes_ops)
 {
     __m128i inl = set_lsb(seed, 0);
@@ -211,6 +172,45 @@ static inline void prgboth(std::array<__m128i,LWIDTH> &left,
         left[2] = _mm_xor_si128(midl2, inl);
         right[2] = _mm_xor_si128(midr2, inr);
     }
+}
+
+template <size_t LWIDTH>
+static void prgboth(std::array<DPFnode,LWIDTH> &left,
+    std::array<DPFnode,LWIDTH> &right, const DPFnode& seed, size_t &aes_ops) {
+    auto seed_vec = split_dpfnode_to_m128i(seed);
+
+    std::vector<std::array<__m128i, LWIDTH>> left_res{}, right_res{};
+
+    for (__m128i &seed_elmt : seed_vec) {
+        std::array<__m128i, LWIDTH> left_elmt, right_elmt;
+        prghelper<LWIDTH>(left_elmt, right_elmt, seed_elmt, aes_ops);
+        left_res.push_back(left_elmt);
+        right_res.push_back(right_elmt);
+    }
+
+    std::vector<std::vector<__m128i>> extracted_elements_left(LWIDTH), extracted_elements_right(LWIDTH);
+
+    for (size_t i = 0; i < LWIDTH; i++) {
+        for (const auto& arr : left_res) {
+            extracted_elements_left[i].push_back(arr[i]);
+        }
+        for (const auto& arr : right_res) {
+            extracted_elements_right[i].push_back(arr[i]);
+        }
+    }
+
+    std::array<DPFnode,LWIDTH> left_leaf, right_leaf;
+    for (size_t i = 0; i < LWIDTH; i++) {
+        std::array<__m128i, LWIDTH> elmts_left{}, elmts_right{};
+        for (size_t j = 0; j < LWIDTH; j++) {
+            elmts_left[j] = extracted_elements_left[i][j];
+            elmts_right[j] = extracted_elements_right[i][j];
+        }
+        left_leaf[i] = combine_m128i_to_dpfnode<LWIDTH>(elmts_left);
+        right_leaf[i] = combine_m128i_to_dpfnode<LWIDTH>(elmts_right);
+    }
+    right = right_leaf;
+    left = left_leaf;
 }
 
 #endif
