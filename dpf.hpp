@@ -71,9 +71,9 @@ inline DPFnode DPF::descend(const DPFnode &parent, nbits_t parentdepth,
     prg(prgout, parent, whichchild, aes_ops);  // generation on the fly possible (prg is pseudorandom)
     if (flag) {
         DPFnode CW = cw[parentdepth];
-        bit_t cfbit = !!(cfbits & (value_t(1)<<parentdepth));  // bool-alias: true if flagbit is set at parentdepth, else false
+        bit_t cfbit = bit_at(cfbits, parentdepth);
         DPFnode CWR;
-        mpz_xor(CWR.value, CW.value, GMPMasks<2*VALUE_BITS>::lsb_mask[cfbit].get_mpz_t());
+        mpz_xor(CWR.get_mpz_t(), CW.get_mpz_t(), GMPMasks<2*VALUE_BITS>::lsb_mask[cfbit].get_mpz_t());
         prgout ^= (whichchild ? CWR : CW); // xors the child with the given correction word (includes, whether used or not)
     }
     return prgout;

@@ -1,7 +1,6 @@
 // Templated method implementations for rdpf.hpp
 
 #include "mpcops.hpp"
-#include "types.hpp"
 
 // Compute the multiplicative inverse of x mod 2^{VALUE_BITS}
 // This is the same as computing x to the power of
@@ -190,15 +189,15 @@ inline typename RDPF<WIDTH>::LeafNode RDPF<WIDTH>::descend_to_leaf(
     const DPFnode &parent, nbits_t parentdepth, bit_t whichchild,
     size_t &aes_ops) const
 {
-    LeafNode prgout;
+    typename RDPF<WIDTH>::LeafNode prgout;
     bool flag = get_lsb(parent);
-    prg<LWIDTH>(prgout, parent, whichchild, aes_ops);
+    prg(prgout, parent, whichchild, aes_ops);
     if (flag) {
         LeafNode CW = li[maxdepth-parentdepth-1].leaf_cw;
         LeafNode CWR = CW;
-        bit_t cfbit = !!(leaf_cfbits &
-            (value_t(1)<<value_t(maxdepth-parentdepth-1)));
-        mpz_xor(CWR[0].value, CWR[0].value, GMPMasks<2*VALUE_BITS>::lsb_mask[cfbit].get_mpz_t());
+        bit_t cfbit = !!value_t(leaf_cfbits & value_t(1 << (maxdepth-parentdepth-1)));
+        mpz_class temp_mask = GMPMasks<WIDTH>::lsb_mask[cfbit];
+        mpz_xor(CWR[0].get_mpz_t(), temp_mask.get_mpz_t(), CWR[0].get_mpz_t());
         prgout ^= (whichchild ? CWR : CW);
     }
     return prgout;
@@ -369,25 +368,17 @@ T& operator>>(T &is, RDPFPair<WIDTH> &rdpfpair)
 }
 
 // Set a DPFnode to zero
-static void zero(DPFnode &z) {
-    mpz_set_ui(z.value, 0);
+static inline void zero(DPFnode &z)
+{
+    mpz_set_ui(z.get_mpz_t(), 0);
 }
 
 // Set a LeafNode to zero
 template <size_t LWIDTH>
-static inline void zero(std::array<DPFnode,LWIDTH> &z)
+static inline void zero(std::array<mpz_class,LWIDTH> &z)
 {
     for (size_t j=0;j<LWIDTH;++j) {
         zero(z[j]);
-    }
-}
-
-// Set an array of value_r to zero
-template <size_t WIDTH>
-static inline void zero(std::array<value_t,WIDTH> &z)
-{
-    for (size_t j=0;j<WIDTH;++j) {
-        z[j] = 0;
     }
 }
 
@@ -415,12 +406,7 @@ static inline void expand_level_nothreads(size_t start, size_t end,
         */
         NT lchild, rchild;
         // will return lchild ^ lchild_ciphertext and rchild ^ rchild_ciphertext
-        if constexpr (std::is_same<NT, DPFnode>::value) {
-            prgboth(lchild, rchild, curlevel[i], laes_ops);
-        } else {
-            const unsigned int width = sizeof(lL) / sizeof(lL[0]);
-            prgboth<width>(lchild, rchild, curlevel[i], laes_ops);
-        }
+        prgboth(lchild, rchild, curlevel[i], laes_ops);
         lL ^= lchild;  // compound assignemnt operator (bitwise xor) => lL = lL XOR lchild = lchild (lL is zero)
         lR ^= rchild;
         nextlevel[2*i] = lchild;
@@ -563,24 +549,24 @@ static inline void finalize_leaf_layer_nothreads(size_t start,
             nextlevel[2*i+1] = rightchild;
         }
         // Divides the 128bit vectors into two 64-bit vectors leftchild => (lefthigh, leftlow) and right, respectively
-        value_t leftlow = value_t(_mm_cvtsi128_si64x(leftchild[0]));
-        value_t rightlow = value_t(_mm_cvtsi128_si64x(rightchild[0]));
-        value_t lefthigh =
-            value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leftchild[0],8)));
-        value_t righthigh =
-            value_t(_mm_cvtsi128_si64x(_mm_srli_si128(rightchild[0],8)));
-        llow_sum += (leftlow + rightlow);
-        lhigh_sum[0] += (lefthigh + righthigh);
-        lhigh_xor[0] ^= (lefthigh ^ righthigh);
+        value_t leftlow, rightlow, lefthigh, righthigh;
+        mpz_mod_2exp(leftlow.get_mpz_t(), leftchild[0].get_mpz_t(), WIDTH / 2);
+        mpz_mod_2exp(rightlow.get_mpz_t(), rightchild[0].get_mpz_t(), WIDTH / 2);
+        mpz_fdiv_q_2exp(lefthigh.get_mpz_t(), leftchild[0].get_mpz_t(), WIDTH / 2);
+        mpz_fdiv_q_2exp(righthigh.get_mpz_t(), rightchild[0].get_mpz_t(), WIDTH / 2);
+
+        llow_sum += leftlow + rightlow;
+        lhigh_sum[0] += lefthigh + righthigh;
+        lhigh_xor[0] ^= lefthigh ^ righthigh;
         size_t w = 0;
         for (size_t j=1; j<WIDTH; j+=2) {
             ++w;
-            value_t leftlow = value_t(_mm_cvtsi128_si64x(leftchild[w]));
-            value_t rightlow = value_t(_mm_cvtsi128_si64x(rightchild[w]));
-            value_t lefthigh =
-                value_t(_mm_cvtsi128_si64x(_mm_srli_si128(leftchild[w],8)));
-            value_t righthigh =
-                value_t(_mm_cvtsi128_si64x(_mm_srli_si128(rightchild[w],8)));
+            value_t leftlow, lefthigh, rightlow, righthigh;
+            mpz_mod_2exp(leftlow.get_mpz_t(), leftchild[w].get_mpz_t(), WIDTH / 2);
+            mpz_mod_2exp(rightlow.get_mpz_t(), rightchild[w].get_mpz_t(), WIDTH / 2);
+            mpz_fdiv_q_2exp(lefthigh.get_mpz_t(), leftchild[w].get_mpz_t(), WIDTH / 2);
+            mpz_fdiv_q_2exp(righthigh.get_mpz_t(), rightchild[w].get_mpz_t(), WIDTH / 2);
+
             lhigh_sum[j] += (leftlow + rightlow);
             lhigh_xor[j] ^= (leftlow ^ rightlow);
             if (j+1 < WIDTH) {
@@ -733,6 +719,7 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
     // those four nodes to just L0^R0^L1^R1^our_parity^peer_parity
     // = 1 because everything cancels out except player (for which
     // one player is 0 and the other is 1).
+
     bool our_parity_bit = get_lsb(L) ^ get_lsb(R) ^ !!player;
     xor_lsb(R, our_parity_bit);
 
@@ -827,7 +814,7 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
             tio.recv_peer(&peer_low_sum, sizeof(peer_low_sum));
             low_sum += peer_low_sum;
             // The low_sum had better be odd
-            assert(low_sum & value_t(1));
+            assert(parity(low_sum) == 1);
             li.unit_sum_inverse = inverse_value_t(low_sum);
         }
     } else if constexpr (!std::is_same_v<NT, DPFnode>) {
@@ -919,7 +906,7 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
                     create_level(tio, yield, curlevel, nextlevel, player, level,
                         depth, bs_choice, CW, cfbit, save_expansion, noleafinfo,
                         aes_ops);
-                    cfbits |= (value_t(cfbit)<<value_t(level));
+                    cfbits |= (value_t(cfbit)<<level);
                     if (player < 2) {
                         cw.push_back(CW);
                     }
@@ -934,7 +921,7 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
                     create_level(tio, yield, curlevel, leaflevel, player,
                         level, depth, bs_choice, CW, cfbit, save_expansion,
                         li[depth-level-1], aes_ops);
-                    leaf_cfbits |= (value_t(cfbit)<<value_t(depth-level-1));
+                    leaf_cfbits |= (value_t(cfbit)<<(depth-level-1));
                     li[depth-level-1].leaf_cw = CW;
                 });
         }
@@ -983,7 +970,7 @@ void RDPF<WIDTH>::expand_leaf_layer(nbits_t li_index, size_t &aes_ops)
     li[li_index].expansion.resize(num_leaves);
     address_t index = 0;
     address_t lastindex = 0;
-    DPFnode *path = new DPFnode[depth];
+    auto *path = new DPFnode[depth];
     path[0] = seed;
     for (nbits_t i=1;i<depth;++i) {
         path[i] = descend(path[i-1], i-1, 0, aes_ops);
