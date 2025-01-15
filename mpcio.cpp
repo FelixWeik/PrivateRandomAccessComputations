@@ -2,7 +2,6 @@
 #include <sys/resource.h>  // getrusage
 #include "mpcio.hpp"
 #include "rdpf.hpp"
-#include "cdpf.hpp"
 #include "bitutils.hpp"
 #include "coroutine.hpp"
 
@@ -313,7 +312,7 @@ MPCPeerIO::MPCPeerIO(unsigned player, ProcessingMode mode,
     rdpfstorage_init<4>(irdpftriples, player, mode, num_threads, true);
     rdpfstorage_init<5>(irdpftriples, player, mode, num_threads, true);
     for (unsigned i=0; i<num_threads; ++i) {
-        cdpfs.emplace_back(player, mode, "cdpf", i);
+        // cdpfs.emplace_back(player, mode, "cdpf", i);
     }
     for (unsigned i=0; i<num_threads; ++i) {
         peerios.emplace_back(std::move(peersocks[i]), "peer", i);
@@ -357,9 +356,9 @@ void MPCPeerIO::dump_precomp_stats(std::ostream &os)
         rdpfstorage_dumpstats<3>(os, irdpftriples, i, true);
         rdpfstorage_dumpstats<4>(os, irdpftriples, i, true);
         rdpfstorage_dumpstats<5>(os, irdpftriples, i, true);
-        cnt = cdpfs[i].get_stats();
+        // cnt = cdpfs[i].get_stats();
         if (cnt > 0) {
-            os << " c:" << cnt;
+            // os << " c:" << cnt;
         }
     }
     os << "\n";
@@ -770,14 +769,14 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
             // 1 -> 1111...1)
             if (X0 == 0) {
-                mpz_set_ui(X0ext.value, 0);
+                mpz_set_ui(X0ext.get_mpz_t(), 0);
             } else {
-                mpz_set_ui(X0ext.value, ~0UL);
+                mpz_set_ui(X0ext.get_mpz_t(), ~0UL);
             }
             if (X1 == 0) {
-                mpz_set_ui(X1ext.value, 0);
+                mpz_set_ui(X1ext.get_mpz_t(), 0);
             } else {
-                mpz_set_ui(X1ext.value, ~0UL);
+                mpz_set_ui(X1ext.get_mpz_t(), ~0UL);
             }
             Z1 = ((X0ext & Y1) ^ (X1ext & Y0)) ^ Z0;
             queue_p0(&X0, sizeof(X0));
@@ -866,32 +865,32 @@ SelectTriple<bit_t> MPCTIO::bitselecttriple(yield_t &yield)
     --last_andtriple_bits_remaining;
     value_t mask = value_t(1) << last_andtriple_bits_remaining;
     SelectTriple<bit_t> val;
-    val.X = !!(std::get<0>(last_andtriple) & mask);
-    val.Y = !!(std::get<1>(last_andtriple) & mask);
-    val.Z = !!(std::get<2>(last_andtriple) & mask);
+    val.X = !!value_t(std::get<0>(last_andtriple) & mask);
+    val.Y = !!value_t(std::get<1>(last_andtriple) & mask);
+    val.Z = !!value_t(std::get<2>(last_andtriple) & mask);
     return val;
 }
 
-CDPF MPCTIO::cdpf(yield_t &yield)
-{
-    CDPF val;
-    if (mpcio.player < 2) {
-        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
-        if (mpcpio.mode != MODE_ONLINE) {
-            yield();
-            iostream_server() >> val;
-            mpcpio.cdpfs[thread_num].inc();
-        } else {
-            mpcpio.cdpfs[thread_num].get(val);
-        }
-    } else if (mpcio.mode != MODE_ONLINE) {
-        auto [ cdpf0, cdpf1 ] = CDPF::generate(aes_ops());
-        iostream_p0() << cdpf0;
-        iostream_p1() << cdpf1;
-        yield();
-    }
-    return val;
-}
+// CDPF MPCTIO::cdpf(yield_t &yield)
+// {
+//     CDPF val;
+//     if (mpcio.player < 2) {
+//         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+//         if (mpcpio.mode != MODE_ONLINE) {
+//             yield();
+//             iostream_server() >> val;
+//             mpcpio.cdpfs[thread_num].inc();
+//         } else {
+//             mpcpio.cdpfs[thread_num].get(val);
+//         }
+//     } else if (mpcio.mode != MODE_ONLINE) {
+//         auto [ cdpf0, cdpf1 ] = CDPF::generate(aes_ops());
+//         iostream_p0() << cdpf0;
+//         iostream_p1() << cdpf1;
+//         yield();
+//     }
+//     return val;
+// }
 
 // The port number for the P1 -> P0 connection
 static const unsigned short port_p1_p0 = 2115;

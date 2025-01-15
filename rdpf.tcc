@@ -1,3 +1,6 @@
+#ifndef RDPF_TCC
+#define RDPF_TCC
+
 // Templated method implementations for rdpf.hpp
 
 #include "mpcops.hpp"
@@ -1127,3 +1130,5 @@ typename RDPF2of3<WIDTH>::LeafNode RDPF2of3<WIDTH>::descend_to_leaf(
     C1 = dpf1.descend_to_leaf(P1, parentdepth, whichchild, aes_ops);
     return std::make_tuple(C0,C1);
 }
+
+#endif

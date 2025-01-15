@@ -219,7 +219,7 @@ struct MPCPeerIO : public MPCIO {
     std::vector<PreCompStorage<AndTriple, AndTripleName>> andtriples;
     std::vector<PreCompStorage<
         SelectTriple<value_t>, ValSelectTripleName>> valselecttriples;
-    std::vector<PreCompStorage<CDPF, CDPFName>> cdpfs;
+    // std::vector<PreCompStorage<CDPF, CDPFName>> cdpfs;
     // The outer vector is (like above) one item per thread
     // The inner array is indexed by DPF depth (depth d is at entry d-1)
     // We have one of these whole vectors-of-arrays for each RDPF width,
@@ -464,7 +464,7 @@ public:
     RDPFPair<WIDTH> rdpfpair(yield_t &yield, nbits_t depth,
         bool incremental = false);
     // Anyone can call:
-    CDPF cdpf(yield_t &yield);
+    // CDPF cdpf(yield_t &yield);
 
     // Accessors
 

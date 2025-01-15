@@ -1,3 +1,6 @@
+#ifndef MPCIO_TCC
+#define MPCIO_TCC
+
 // T is the type being stored
 // N is a type whose "name" static member is a string naming the type
 //   so that we can report something useful to the user if they try
@@ -119,3 +122,5 @@ RDPFPair<WIDTH> MPCTIO::rdpfpair(yield_t &yield, nbits_t depth,
     }
     return val;
 }
+
+#endif

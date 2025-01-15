@@ -1,3 +1,6 @@
+#ifndef MPCOPS_TCC
+#define MPCOPS_TCC
+
 template <size_t LWIDTH>
 void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     std::array<DPFnode,LWIDTH> &z, RegBS f,
@@ -14,3 +17,5 @@ void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     }
     run_coroutines(yield, coroutines);
 }
+
+#endif
