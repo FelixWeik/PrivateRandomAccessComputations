@@ -53,7 +53,7 @@ struct RegAS {
     // Set each side's share to a random value nbits bits long
     void randomize(size_t nbits = VALUE_BITS) {
         value_t mask = MASKBITS(nbits);
-        arc4random_buf(&ashare, sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
+        random_mpz(ashare.get_mpz_t(), sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
         ashare &= mask;
     }
 
@@ -216,10 +216,15 @@ struct RegXS {
     void set(const value_t& s) { xshare = s; }
 
     // Set each side's share to a random value nbits bits long
-    void randomize(size_t nbits = VALUE_BITS) {
+    void randomize(size_t nbits = VALUE_BITS, int seed = 42) {
+        gmp_randstate_t state;
+        gmp_randinit_default(state);
+        gmp_randseed_ui(state, seed);
+
         value_t mask = MASKBITS(nbits);
-        arc4random_buf(&xshare, sizeof(xshare));
-        xshare &= mask;
+        mpz_urandomb(xshare.get_mpz_t(), state, nbits);
+        // arc4random_buf(&xshare, sizeof(xshare));
+        xshare &= mask;  //TODO HIER War ein segfault!!!!!
     }
 
     void test(const RegXS& xreg) const {
@@ -768,65 +773,6 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
     return A;
 }
 
-inline std::vector<__m128i> split_dpfnode_to_m128i(const DPFnode& dpfnode) {
-    std::vector<__m128i> res;
-    int bits_per_block = 128;
-
-    mpz_t value;
-    mpz_init(value);
-    mpz_set(value, dpfnode.get_mpz_t());
-
-    mpz_t mask;
-    mpz_init(mask);
-    mpz_set_ui(mask, 1);
-    mpz_mul_2exp(mask, mask, bits_per_block);
-
-    for (size_t i = 0; i < LABEL_BLOCKS; i++) {
-        mpz_t block;
-        mpz_init(block);
-        mpz_fdiv_q_2exp(block, value, bits_per_block * i);
-        res.push_back(_mm_set_epi64x(mpz_get_ui(block), mpz_get_ui(block)));
-        mpz_clear(block);
-    }
-    mpz_clear(value);
-    mpz_clear(mask);
-    return res;
-}
-
-template <size_t WIDTH>
-std::vector<std::vector<__m128i>> split_leafnode_to_m128i(const std::array<DPFnode, WIDTH> &leafnode) {
-    std::vector<std::vector<__m128i>> res;
-    for (auto &dpfnode : leafnode) {
-        auto tmp = split_dpfnode_to_m128i(dpfnode);
-        res.push_back(tmp);
-    }
-    return res;
-}
-
-template <unsigned int N>
-inline DPFnode combine_m128i_to_dpfnode(const std::array<__m128i, N>& vec) {
-    mpz_t result;
-    mpz_init(result);
-    mpz_set_ui(result, 0);  // Setze initialen Wert auf 0
-
-    for (size_t i = 0; i < N; i++) {
-        // Extrahiere die 128 Bits aus dem __m128i Vektor
-        uint64_t low = _mm_cvtsi128_si64x(vec[i]);
-        uint64_t high = _mm_cvtsi128_si64x(_mm_srli_si128(vec[i], 8));
-
-        // Verschiebe die extrahierten Bits und kombiniere sie in result
-        mpz_mul_2exp(result, result, 128);  // Platz für die neuen 128 Bits schaffen
-        mpz_add_ui(result, result, low);   // Füge den unteren 64-Bit Teil hinzu
-        mpz_mul_2exp(result, result, 64);  // Platz für die oberen 64 Bits schaffen
-        mpz_add_ui(result, result, high);  // Füge den oberen 64-Bit Teil hinzu
-    }
-
-    DPFnode res(result);
-    mpz_clear(result);
-
-    return res;
-}
-
 // A Select triple for type V (V is DPFnode, value_t, or bit_t) is a
 // triple of (X0,Y0,Z0) where X0 is a bit and Y0 and Z0 are Vs held by
 // P0 (and correspondingly (X1,Y1,Z1) held by P1), with all values
@@ -865,13 +811,20 @@ struct CDPFName { static constexpr const char *name = "c"; };
         is.read((char *)&x, sizeof(x));        \
         return is;                             \
     }                                          \
-                                               \
-    template <typename T>                      \
-    T& operator<<(T& os, const CLASSNAME &x)   \
-    {                                          \
-        os.write((const char *)&x, sizeof(x)); \
-        return os;                             \
-    }
+
+
+
+template <typename T>
+T& operator<<(T& os, mpz_class& x)
+{
+    size_t size = 0;
+    void* buffer = mpz_export(nullptr, &size, 1, 1, 0, 0, x.get_mpz_t());
+    os.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    os.write(reinterpret_cast<const char*>(buffer), size);
+    free(buffer);
+    return os;
+}
+
 
 // Default I/O for various types
 
@@ -895,11 +848,15 @@ T& operator>>(T& is, std::array<S,N> &x)
 }
 
 template <typename T, typename S, size_t N>
-T& operator<<(T& os, const std::array<S,N> &x)
+T& operator<<(T& os, const std::array<S,N> &xs)
 {
-    for (size_t i=0;i<N;++i) {
-        os << x[i];
+    for (auto &x : xs) {
+        auto tmp = mpz_get_str(nullptr, 10, x.share().get_mpz_t());
+        os.write(tmp, sizeof tmp);
     }
+    // for (size_t i=0;i<N;++i) {
+    //     // os << x[i];
+    // }
     return os;
 }
 

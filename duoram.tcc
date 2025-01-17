@@ -69,9 +69,9 @@ void Duoram<T>::Shape::explicitonly(bool enable)
                 BL.randomize();
                 mpz_t tmp;
                 mpz_add(tmp, DB.share().get_mpz_t(), BL.share().get_mpz_t());
-                auto tmp0 = mpz_get_str(nullptr, 2, BL.share().get_mpz_t());
+                auto tmp0 = mpz_get_str(nullptr, 10, BL.share().get_mpz_t());
                 tio.iostream_server().write(tmp0, sizeof(tmp0));
-                auto tmp1 = mpz_get_str(nullptr, 2, tmp);
+                auto tmp1 = mpz_get_str(nullptr, 10, tmp);
                 tio.iostream_peer().write(tmp1, sizeof(tmp1));
             }
             yield();
@@ -404,8 +404,8 @@ Duoram<T>::Shape::MemRefS<U,FT,FST,Sh,WIDTH>::operator FT()
         // shape.tio.iostream_p0() << std::get<0>(gamma);
         // shape.tio.iostream_p1() << std::get<1>(gamma); ursprüngliche lösung (die geht aber nicht)
 
-        auto tmp0 = mpz_get_str(nullptr, 2, std::get<0>(gamma).share().get_mpz_t());
-        auto tmp1 = mpz_get_str(nullptr, 2, std::get<1>(gamma).share().get_mpz_t());
+        auto tmp0 = mpz_get_str(nullptr, 10, std::get<0>(gamma).share().get_mpz_t());
+        auto tmp1 = mpz_get_str(nullptr, 10, std::get<1>(gamma).share().get_mpz_t());
 
         shape.tio.iostream_p0().write(tmp0, sizeof tmp0);  //TODO checken, ob nicht doch 10er Basis
         shape.tio.iostream_p1().write(tmp1, sizeof tmp1);
@@ -648,10 +648,10 @@ typename Duoram<T>::Shape::template MemRefExpl<FT,FST>
 
         // Send the blind to the server, and the blinded value to the
         // peer
-        auto tmp = mpz_get_str(nullptr, 2, blind.share().get_mpz_t());
+        auto tmp = mpz_get_str(nullptr, 10, blind.share().get_mpz_t());
         mpz_t tmp0;
         mpz_add(tmp0, M.share().get_mpz_t(), blind.share().get_mpz_t());
-        auto tmp1 = mpz_get_str(nullptr, 2, tmp0);
+        auto tmp1 = mpz_get_str(nullptr, 10, tmp0);
         shape.tio.iostream_server().write(tmp, sizeof tmp);
         shape.tio.iostream_peer().write(tmp1, sizeof tmp1);
         // shape.tio.iostream_server() << blind;

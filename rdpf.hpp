@@ -99,7 +99,7 @@ struct RDPF : public DPF {
     // 2^{depth+1}-2 local AES operations for P0,P1
     // 0 local AES operations for P2
     RDPF(MPCTIO &tio, yield_t &yield,
-        RegXS target, nbits_t depth, bool incremental = false,
+        const RegXS& target, nbits_t depth, bool incremental = false,
         bool save_expansion = false);
 
     // Do we have a precomputed expansion?

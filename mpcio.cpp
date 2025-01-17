@@ -652,11 +652,16 @@ MultTriple MPCTIO::multtriple(yield_t &yield)
         // Create multiplication triples (X0,Y0,Z0),(X1,Y1,Z1) such that
         // (X0*Y1 + Y0*X1) = (Z0+Z1)
         value_t X0, Y0, Z0, X1, Y1, Z1;
-        arc4random_buf(&X0, sizeof(X0));
-        arc4random_buf(&Y0, sizeof(Y0));
-        arc4random_buf(&Z0, sizeof(Z0));
-        arc4random_buf(&X1, sizeof(X1));
-        arc4random_buf(&Y1, sizeof(Y1));
+        // arc4random_buf(&X0, sizeof(X0));
+        random_mpz(X0.get_mpz_t());
+        // arc4random_buf(&Y0, sizeof(Y0));
+        random_mpz(Y0.get_mpz_t());
+        // arc4random_buf(&Z0, sizeof(Z0));
+        random_mpz(Z0.get_mpz_t());
+        // arc4random_buf(&X1, sizeof(X1));
+        random_mpz(X1.get_mpz_t());
+        // arc4random_buf(&Y1, sizeof(Y1));
+        random_mpz(Y1.get_mpz_t());
         Z1 = X0 * Y1 + X1 * Y0 - Z0;
         MultTriple T0, T1;
         T0 = std::make_tuple(X0, Y0, Z0);
@@ -689,9 +694,12 @@ HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
         // Create half-triples (X0,Z0),(Y1,Z1) such that
         // X0*Y1 = Z0 + Z1
         value_t X0, Z0, Y1, Z1;
-        arc4random_buf(&X0, sizeof(X0));
-        arc4random_buf(&Z0, sizeof(Z0));
-        arc4random_buf(&Y1, sizeof(Y1));
+        // arc4random_buf(&X0, sizeof(X0));
+        random_mpz(X0.get_mpz_t());
+        // arc4random_buf(&Z0, sizeof(Z0));
+        random_mpz(Z0.get_mpz_t());
+        // arc4random_buf(&Y1, sizeof(Y1));
+        random_mpz(Y1.get_mpz_t());
         Z1 = X0 * Y1 - Z0;
         HalfTriple H0, H1;
         H0 = std::make_tuple(X0, Z0);
@@ -719,11 +727,16 @@ MultTriple MPCTIO::andtriple(yield_t &yield)
         // Create AND triples (X0,Y0,Z0),(X1,Y1,Z1) such that
         // (X0&Y1 ^ Y0&X1) = (Z0^Z1)
         value_t X0, Y0, Z0, X1, Y1, Z1;
-        arc4random_buf(&X0, sizeof(X0));
-        arc4random_buf(&Y0, sizeof(Y0));
-        arc4random_buf(&Z0, sizeof(Z0));
-        arc4random_buf(&X1, sizeof(X1));
-        arc4random_buf(&Y1, sizeof(Y1));
+        // arc4random_buf(&X0, sizeof(X0));
+        random_mpz(X0.get_mpz_t());
+        // arc4random_buf(&Y0, sizeof(Y0));
+        random_mpz(Y0.get_mpz_t());
+        // arc4random_buf(&Z0, sizeof(Z0));
+        random_mpz(Z0.get_mpz_t());
+        // arc4random_buf(&X1, sizeof(X1));
+        random_mpz(X1.get_mpz_t());
+        // arc4random_buf(&Y1, sizeof(Y1));
+        random_mpz(Y1.get_mpz_t());
         Z1 = (X0 & Y1) ^ (X1 & Y0) ^ Z0;
         AndTriple T0, T1;
         T0 = std::make_tuple(X0, Y0, Z0);
@@ -748,7 +761,7 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
                 v.X = Xbyte & 1;
                 recv_server(&v.Y, sizeof(v.Y));
                 recv_server(&v.Z, sizeof(v.Z));
-                queued_nodeselecttriples.push_back(v);
+                queued_nodeselecttriples.emplace_back(v);
             }
             remaining_nodesselecttriples += num;
         } else {
@@ -760,25 +773,47 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             // (X0*Y1 ^ Y0*X1) = (Z0^Z1)
             bit_t X0, X1;
             DPFnode Y0, Z0, Y1, Z1;
-            X0 = arc4random() & 1;
-            arc4random_buf(&Y0, sizeof(Y0));
-            arc4random_buf(&Z0, sizeof(Z0));
-            X1 = arc4random() & 1;
-            arc4random_buf(&Y1, sizeof(Y1));
-            DPFnode X0ext, X1ext;
+            DPFnode tmp0, tmpAnd0;
+
+            // X0 = arc4random() & 1;
+            random_mpz(tmp0.get_mpz_t(), 2*VALUE_BITS);
+            mpz_and(tmpAnd0.get_mpz_t(), tmp0.get_mpz_t(), DPFnode(1).get_mpz_t());
+            X0 = (mpz_cmp_ui(tmpAnd0.get_mpz_t(), 0) != 0) ? 1 : 0;
+
+            // arc4random_buf(&Y0, sizeof(Y0));  //TODO Segfault erwischt!
+            random_mpz(Y0.get_mpz_t(), 2*VALUE_BITS);
+
+            // arc4random_buf(&Z0, sizeof(Z0));
+            random_mpz(Z0.get_mpz_t(), 2*VALUE_BITS);
+
+            DPFnode tmp1, tmpAnd1;
+            // X1 = arc4random() & 1;
+            random_mpz(tmp1.get_mpz_t(), 2*VALUE_BITS);
+            mpz_and(tmpAnd1.get_mpz_t(), tmp1.get_mpz_t(), DPFnode(1).get_mpz_t());
+            X1 = (mpz_cmp_ui(tmpAnd1.get_mpz_t(), 0) != 0);
+
+            // arc4random_buf(&Y1, sizeof(Y1));
+            random_mpz(Y1.get_mpz_t(), 2*VALUE_BITS);
+
+            // mpz_init_set(X0ext.get_mpz_t(), 0);
+            // mpz_init_set(X1ext.get_mpz_t(), 0);
             // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
             // 1 -> 1111...1)
-            if (X0 == 0) {
-                mpz_set_ui(X0ext.get_mpz_t(), 0);
-            } else {
-                mpz_set_ui(X0ext.get_mpz_t(), ~0UL);
-            }
-            if (X1 == 0) {
-                mpz_set_ui(X1ext.get_mpz_t(), 0);
-            } else {
-                mpz_set_ui(X1ext.get_mpz_t(), ~0UL);
-            }
-            Z1 = ((X0ext & Y1) ^ (X1ext & Y0)) ^ Z0;
+            DPFnode X0ext = X0 == 0 ? 1 : 0;
+            DPFnode X1ext = X1 == 0 ? 1 : 0;
+
+            mpz_t A1, A2, XOR1;
+
+            mpz_init(A1);
+            mpz_init(A2);
+            mpz_init(XOR1);
+
+            // Z1 = ((X0ext & Y1) ^ (X1ext & Y0)) ^ Z0;  //Hier war ein Segfault => umgeschrieben in folgende Zeilen
+            mpz_and(A1, X0ext.get_mpz_t(), Y1.get_mpz_t());
+            mpz_and(A2, X1ext.get_mpz_t(), Y0.get_mpz_t());
+            mpz_xor(XOR1, A1, A2);
+            mpz_xor(Z1.get_mpz_t(), XOR1, Z0.get_mpz_t());
+
             queue_p0(&X0, sizeof(X0));
             queue_p0(&Y0, sizeof(Y0));
             queue_p0(&Z0, sizeof(Z0));
@@ -833,11 +868,21 @@ SelectTriple<value_t> MPCTIO::valselecttriple(yield_t &yield)
         // (X0*Y1 ^ Y0*X1) = (Z0^Z1)
         bit_t X0, X1;
         value_t Y0, Z0, Y1, Z1;
-        X0 = arc4random() & 1;
-        arc4random_buf(&Y0, sizeof(Y0));
-        arc4random_buf(&Z0, sizeof(Z0));
-        X1 = arc4random() & 1;
-        arc4random_buf(&Y1, sizeof(Y1));
+        value_t tmp0, tmp1;
+        // arc4random_buf(&Y0, sizeof(Y0));
+        random_mpz(Y0.get_mpz_t(), sizeof(Y0));
+        // arc4random_buf(&Z0, sizeof(Z0));
+        random_mpz(Z0.get_mpz_t(), sizeof(Z0));
+        // X0 = arc4random() & 1;
+        random_mpz(tmp0.get_mpz_t(), sizeof(tmp0));
+        X0 = (mpz_cmp_ui(tmp0.get_mpz_t(), 0) != 0) ? 1 : 0;
+
+        // X1 = arc4random() & 1;
+        random_mpz(tmp1.get_mpz_t(), sizeof(tmp1));
+        X1 = (mpz_cmp_ui(tmp1.get_mpz_t(), 0) != 0) ? 1 : 0;
+        // arc4random_buf(&Y1, sizeof(Y1));
+        random_mpz(Y1.get_mpz_t(), sizeof(Y1));
+
         value_t X0ext, X1ext;
         // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
         // 1 -> 1111...1)

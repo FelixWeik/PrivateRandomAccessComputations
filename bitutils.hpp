@@ -98,7 +98,37 @@ inline std::array<mpz_class, LWIDTH> xor_if(
     return res;
 }
 
-uint8_t get_lsb(const mpz_class& block) {
+//TODO falls gewünscht auf größere Datenwerte (blöcke even) anpassen
+inline __m128i mpz_to_m128i(const mpz_class& value) {
+    size_t num_bytes = (mpz_sizeinbase(value.get_mpz_t(), 2) + 7) / 8;
+    auto* buffer = new unsigned char[16];
+    if (num_bytes > 16) {
+        std::cerr << "mpz_class is too large to fit in 128 bits." << std::endl;
+        delete[] buffer;
+        return _mm_setzero_si128();
+    }
+    mpz_export(buffer, nullptr, -1, 1, 0, 0, value.get_mpz_t());
+    __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer));
+    delete[] buffer;
+    return result;
+}
+
+inline mpz_class m128i_to_mpz_class(__m128i vec) {
+    uint64_t values[2];
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(values), vec);
+    return mpz_class(values[0]) << 64 | mpz_class(values[1]);
+}
+
+// populates out with a random value of size nbits
+inline void random_mpz(mpz_ptr out, size_t nbits = VALUE_BITS, int seed = 42) {
+    gmp_randstate_t state;
+    gmp_randinit_default(state);
+    gmp_randseed_ui(state, seed);
+    mpz_urandomb(out, state, nbits);
+    gmp_randclear(state);
+}
+
+inline uint8_t get_lsb(const mpz_class& block) {
     return mpz_tstbit(block.get_mpz_t(), 0) != 0;
 }
 
@@ -112,7 +142,8 @@ inline mpz_class clear_lsb(const mpz_class& block, uint8_t bits = 0b01) {
 }
 
 inline mpz_class set_lsb(const mpz_class& block, bool val = true) {
-    mpz_class result(clear_lsb(block, 0b01));
+    mpz_class result; //TODO hier ist der Segfault bestimmt
+    clear_lsb(result, 0b01);
     mpz_t mask;
     mpz_init_set_ui(mask, val ? 0b01 : 0b00);
     mpz_ior(result.get_mpz_t(), result.get_mpz_t(), mask);
@@ -242,7 +273,7 @@ inline std::array<__m128i,LWIDTH> xor_if(
 }
 
 template <size_t LWIDTH>
-std::array<DPFnode, LWIDTH> xor_if(
+inline std::array<DPFnode, LWIDTH> xor_if(
     const std::array<DPFnode, LWIDTH> &block1,
     const std::array<DPFnode, LWIDTH> &block2, bool flag)
 {
@@ -266,7 +297,7 @@ inline uint8_t get_lsb(const std::array<__m128i,LWIDTH> & block)
 }
 
 template <size_t LWIDTH>
-uint8_t get_lsb(const std::array<DPFnode,LWIDTH> & block) {
+inline uint8_t get_lsb(const std::array<DPFnode,LWIDTH> & block) {
     return get_lsb(block[0]);
 }
 

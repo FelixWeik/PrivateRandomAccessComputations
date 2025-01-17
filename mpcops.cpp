@@ -260,7 +260,9 @@ void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
     run_coroutines(yield, coroutines);
     value_t as_C = 0;
     for (nbits_t i=0; i<nbits-1; ++i) {
-        as_C += (as_bitand[i].ashare<<(i+1));
+        mpz_t tmp;
+        mpz_mul_2exp(tmp, as_bitand[i].ashare.get_mpz_t(), i+1);
+        as_C = value_t(tmp);
     }
     as_x.ashare = (xs_x.xshare - as_C) & mask;
 }
@@ -333,7 +335,7 @@ void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     DPFnode &z, RegBS f, DPFnode x, DPFnode y)
 {
     // Sign-extend f (so 0 -> 0000...0; 1 -> 1111...1)
-    DPFnode fext = if128_mask[f.bshare];
+    auto fext = GMPMasks<VALUE_BITS>::if_mask[f.bshare];
 
     // Compute XOR shares of f & (x ^ y)
     auto [X, Y, Z] = tio.nodeselecttriple(yield);
@@ -355,7 +357,7 @@ void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     tio.recv_peer(&peer_blind_d, sizeof(peer_blind_d));
 
     // Compute _our share_ of f ? x : y = (f * (x ^ y))^x
-    DPFnode peer_blind_fext = if128_mask[peer_blind_f];
+    auto peer_blind_fext = GMPMasks<VALUE_BITS>::if_mask[peer_blind_f];
     DPFnode zshare =
             (fext & peer_blind_d) ^ (Y & peer_blind_fext) ^
             (fext & d) ^ (Z ^ x);

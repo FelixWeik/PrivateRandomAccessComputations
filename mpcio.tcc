@@ -1,6 +1,3 @@
-#ifndef MPCIO_TCC
-#define MPCIO_TCC
-
 // T is the type being stored
 // N is a type whose "name" static member is a string naming the type
 //   so that we can report something useful to the user if they try
@@ -108,7 +105,7 @@ RDPFPair<WIDTH> MPCTIO::rdpfpair(yield_t &yield, nbits_t depth,
                 [thread_num][depth-1].get(val);
         }
     } else {
-        RDPFTriple<WIDTH> trip(*this, yield, depth, incremental, true);
+        RDPFTriple<WIDTH> trip(*this, yield, depth, false, false);
         yield();
         iostream_p0() >> val.dpf[0];
         iostream_p1() >> val.dpf[1];
@@ -122,5 +119,3 @@ RDPFPair<WIDTH> MPCTIO::rdpfpair(yield_t &yield, nbits_t depth,
     }
     return val;
 }
-
-#endif

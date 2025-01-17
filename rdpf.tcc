@@ -836,16 +836,24 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
 // small optimization noted below.
 template <nbits_t WIDTH>
 RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
-    RegXS target, nbits_t depth, bool incremental, bool save_expansion)
+    const RegXS& target, nbits_t depth, bool incremental, bool save_expansion)
 {
     int player = tio.player();
     size_t &aes_ops = tio.aes_ops();
+    int seed_int = 42;
 
     // Choose a random seed
-    arc4random_buf(&seed, sizeof(seed));
+    // arc4random_buf(&seed, sizeof(seed));
+    gmp_randstate_t state;
+    gmp_randinit_default(state);
+    gmp_randseed_ui(state, seed_int);
+
+    mpz_class seed;
+
+    mpz_urandomb(seed.get_mpz_t(), state, VALUE_BITS);
     // Ensure the flag bits (the lsb of each node) are different => p0 has lsb 0, p1 lsb 1 by default
     // Note the invariant of dpf construction, only on the path to i* the flag bits must be different (root always on path)
-    seed = set_lsb(seed, !!player);
+    seed = set_lsb(seed, !!player); //TODO neinein er ist hier
     cfbits = 0;
     leaf_cfbits = 0;
     whichhalf = (player == 1);
@@ -876,10 +884,10 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
             }
             // This will build a leafNode or DPF node according to the level (also in non-incremental dpfs)
             else if (incremental || level == depth-1) {
-                leaflevel = new LeafNode[1<<(level+1)];  //TODO why is the sum taken
+                leaflevel = new LeafNode[1<<(level+1)];
             }
             if (level < depth-1) {
-                nextlevel = new DPFnode[1<<(level+1)];  // sets the vector to 2^(level+1)  //TODO why m128i when 64bit words?
+                nextlevel = new DPFnode[1<<(level+1)];  // sets the vector to 2^(level+1)
             }
         }
         // Invariant: curlevel has 2^level DPFnode elements; nextlevel
@@ -1032,23 +1040,11 @@ RDPFTriple<WIDTH>::RDPFTriple(MPCTIO &tio, yield_t &yield,
 {
     // Pick a random XOR share of the target
     xs_target.randomize(depth);
-
-    // Now create three RDPFs with that target, and also convert the XOR
-    // shares of the target to additive shares
-    std::vector<coro_t> coroutines;
     for (int i=0;i<3;++i) {
-        coroutines.emplace_back(
-            [this, &tio, depth, i, incremental,
-                save_expansion](yield_t &yield) {
-                dpf[i] = RDPF<WIDTH>(tio, yield, xs_target, depth,
+        dpf[i] = RDPF<WIDTH>(tio, yield, xs_target, depth,
                     incremental, save_expansion);
-            });
     }
-    coroutines.emplace_back(
-        [this, &tio, depth](yield_t &yield) {
-            mpc_xs_to_as(tio, yield, as_target, xs_target, depth, false);
-        });
-    run_coroutines(yield, coroutines);
+    mpc_xs_to_as(tio, yield, as_target, xs_target, depth, false);
 }
 
 template <nbits_t WIDTH>
