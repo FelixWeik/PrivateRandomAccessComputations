@@ -791,7 +791,7 @@ void big<RegAS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
         Duoram<RegAS> oram(tio.player(), size);
 
         typename Duoram<RegAS>::Flat A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
-        IndexAS idx;
+        IndexAS idx;  // INPUT-PARTITION viele zufällige indizes
 
         RegAS regas0, regas1;
         regas0.randomize();
