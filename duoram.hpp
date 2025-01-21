@@ -492,20 +492,20 @@ public:
             res(*this, indcs);
         return res;
     }
-    Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
-        operator[](const IndexAS &idx) {
-            std::vector<RegAS> i = idx.getVector();
-            Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
-            res(*this, i);
-            return res;
-    }
-    Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
-        operator[](const IndexXS &idx) {
-            std::vector<RegXS> i = idx.getVector();
-            Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
-            res(*this, i);
-            return res;
-        }
+    // Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
+    //     operator[](const IndexAS &idx) {
+    //         std::vector<RegAS> i = idx.getVector();
+    //         Duoram<RegAS>::Shape::MemRefInd<RegAS, Flat>
+    //         res(*this, i);
+    //         return res;
+    // }
+    // Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
+    //     operator[](const IndexXS &idx) {
+    //         std::vector<RegXS> i = idx.getVector();
+    //         Duoram<RegXS>::Shape::MemRefInd<RegXS, Flat>
+    //         res(*this, i);
+    //         return res;
+    //     }
 
     // Oblivious sort the elements indexed by the two given indices.
     // Without reconstructing the values, if dir=0, this[idx1] will

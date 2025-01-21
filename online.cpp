@@ -771,49 +771,67 @@ static void big(MPCIO &mpcio, const PRACOptions &opts, char **args) {
 template <>
 void big<RegAS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
     nbits_t depth = 6;
-    int items = 4;
 
     if (*args) {
         depth = atoi(*args);
         ++args;
     }
-    if (*args) {
-        items = atoi(*args);
-        ++args;
-    }
 
-    MPCTIO tio(mpcio, 0, opts.num_cpu_threads);
+    MPCTIO tio(mpcio, 0, opts.num_cpu_threads);  // single thread for keeping my sanity while debugging
 
-    run_coroutines(tio, [&mpcio, &tio, depth, items] (yield_t &yield) {
+    run_coroutines(tio, [&mpcio, &tio, depth] (yield_t &yield) {
         size_t size = size_t(1)<<depth;  // size = 2^depth
         address_t mask = (depth < ADDRESS_MAX_BITS ?
             ((address_t(1)<<depth) - 1) : ~0);
-        Duoram<RegAS> oram(tio.player(), size);
 
-        typename Duoram<RegAS>::Flat A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
-        IndexAS idx;  // INPUT-PARTITION viele zufällige indizes
+        Duoram<RegAS> oram(tio.player(), size);  //TODO eigentlich sollten alle werte auf 0 initialisiert sein, warum gehen dann unabhängige updates nicht???
+        auto A = oram.flat(tio, yield);
 
-        RegAS regas0, regas1;
-        regas0.randomize();
-        regas1.randomize();
-        RegAS regas[] = { regas0, regas1 };
-        BigAS bigASin(regas);
+        std::cout << "===== DEPENDENT UPDATES =====\n";
+                mpcio.reset_stats();
+                tio.reset_lamport();
+                // Make a linked list of length items => the indices written in here will first be updated, then read twice
+                std::vector<RegAS> list_indices;
+                RegAS prev_index, next_index;
+                for (int i=0;i<INPUT_PARTITION;++i) {
+                    next_index.randomize(depth);  // important: randomize is pseudorandom (also adds a bit-mask)
+                    A[next_index] += prev_index;
+                    list_indices.push_back(next_index);
+                    prev_index = next_index;
+                }
+                RegAS A_tmp = A[prev_index];  // has type Duoram<RegAS>::Shape::MemRefS<RegAS, RegAS, std::nullopt_t, Duoram<RegAS>::Flat, (unsigned char)1>
+                tio.sync_lamport();
+                mpcio.dump_stats(std::cout);
 
-        std::cout << "==== Updating ====" << std::endl;
+        std::cout << "Updating" << std::endl;
         mpcio.reset_stats();
         tio.reset_lamport();
-        A[idx] += bigASin;
-        tio.sync_lamport();
-        mpcio.dump_stats(std::cout);
-        std::cout << "==== Finish Updating ====" << std::endl;
 
-        std::cout << "==== Reading ====" << std::endl;
+        RegAS start;
+        start.set(4);
+        IndexAS idx(start);
+        auto indep_indices = idx.getVector();
+
+        RegAS update0, update1;
+        update0.set(0xdead);
+        update1.set(0xbeef);
+        RegAS update_values[] = {update0, update1};
+        BigAS updates(update_values);
+        std::vector<RegAS> update_vector{};
+        for (auto &u : updates.ashares) {
+            update_vector.push_back(u);
+        }
+
+        A[indep_indices] += update_vector;
+
+        std::cout << "Reading" << std::endl;
         mpcio.reset_stats();
         tio.reset_lamport();
-        std::vector<RegAS> out = A[idx];
+        std::vector<RegAS> read_outputs = A[list_indices];
+        BigAS read_outputs_big(read_outputs);
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
-        std::cout << "==== Finish Reading ====" << std::endl;
+
     });
 }
 
@@ -840,7 +858,9 @@ void big<RegXS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
         Duoram<RegXS> oram(tio.player(), size);
 
         typename Duoram<RegXS>::Flat A = oram.flat(tio, yield);  // => Duoram will be accessed via "Flat"-Shape
-        IndexXS idx;
+        RegXS start;
+        start.set(2);
+        IndexXS idx(start);  // INPUT-PARTITION viele inkrementelle Indizes (startet bei 2)
 
         RegXS regxs0, regxs1;
         regxs0.randomize();
@@ -851,7 +871,14 @@ void big<RegXS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
         std::cout << "==== Updating ====" << std::endl;
         mpcio.reset_stats();
         tio.reset_lamport();
-        A[idx] += bigXSin;
+
+        std::vector<RegXS> indep_indices, indep_values;
+        for (int i = 0; i < INPUT_PARTITION; i++) {
+            indep_indices.push_back(bigXSin.xshares[i]);
+            indep_values.push_back(idx.indexChain.xshares[i]);
+        }
+        A[indep_indices] += indep_values;
+
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
         std::cout << "==== Finish Updating ====" << std::endl;
@@ -859,7 +886,10 @@ void big<RegXS>(MPCIO &mpcio, const PRACOptions &opts, char **args) {
         std::cout << "==== Reading ====" << std::endl;
         mpcio.reset_stats();
         tio.reset_lamport();
-        std::vector<RegXS> out = A[idx];
+        // Read all the entries in the list at once (= read all indices that have been updated)
+
+        std::vector<RegXS> out = A[indep_indices];
+
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
         std::cout << "==== Finish Reading ====" << std::endl;

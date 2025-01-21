@@ -12,7 +12,7 @@ template <typename T>
 Duoram<T>::Duoram(int player, size_t size) : player(player),
         oram_size(size), p0_blind(blind), p1_blind(peer_blinded_db) {
     if (player < 2) {
-        database.resize(size);  // initialisiert den vektor mit size-vielen T werten (alle null) => kann dann geupdatet werden
+        database.resize(size);  // initialisiert den vektor mit size-vielen T werten mit ihrem zugehörigen standardkonstruktor
         blind.resize(size);
         peer_blinded_db.resize(size);
     } else {
@@ -753,7 +753,7 @@ typename Duoram<T>::Shape::template MemRefInd<U,Sh>
     std::vector<coro_t> coroutines;
     for (size_t i=0;i<size;++i) {
         coroutines.emplace_back([this, &M, i] (yield_t &yield) {
-            Sh Flat_coro = shape.context(yield);
+            Sh Flat_coro = shape.context(yield);  //TODO hier tritt ein Segfault auf
             Flat_coro[indcs[i]] += M.ashares[i];
     });
     }

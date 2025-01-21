@@ -399,6 +399,12 @@ struct BigAS {
         }
     }
 
+    explicit BigAS (const std::vector<RegAS> &in) {
+        for (int i = 0; i < INPUT_PARTITION; ++i) {
+            this->ashares[i] = in[i];
+        }
+    }
+
     void set(size_t pos, RegAS &val) {
         ashares[pos].set(val.ashare);
     }
@@ -837,7 +843,7 @@ struct IndexXS {
     [[nodiscard]] std::vector<RegXS> getVector() const {
         std::vector<RegXS> res;
         for (RegXS index : indexChain.xshares) {
-            res.push_back(index);
+            res.emplace_back(index);
         }
         return res;
     }
