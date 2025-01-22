@@ -3,7 +3,6 @@
 #include <stdio.h>
 
 #include "mpcops.hpp"
-#include "cdpf.hpp"
 #include "rdpf.hpp"
 
 // Pass the player number and desired size => scales the vectors to the given size (unsigned long has at most 2^64 - 1 values)
@@ -208,69 +207,69 @@ Duoram<T>::Flat::Flat(const Shape &parent, MPCTIO &tio, yield_t &yield,
 template <typename T>
 void Duoram<T>::Flat::bitonic_sort(address_t start, address_t len, bool dir)
 {
-    if (len < 2) return;
-    if (len == 2) {
-        osort(start, start+1, dir);
-        return;
-    }
-    address_t leftlen, rightlen;
-    leftlen = (len+1) >> 1;
-    rightlen = len >> 1;
-
-    // Recurse on the first half (opposite to the desired order)
-    // and the second half (desired order) in parallel
-    run_coroutines(this->yield,
-        [this, start, leftlen, dir](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro.bitonic_sort(start, leftlen, !dir);
-        },
-        [this, start, leftlen, rightlen, dir](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro.bitonic_sort(start+leftlen, rightlen, dir);
-        });
-    // Merge the two into the desired order
-    butterfly(start, len, dir);
+    // if (len < 2) return;
+    // if (len == 2) {
+    //     osort(start, start+1, dir);
+    //     return;
+    // }
+    // address_t leftlen, rightlen;
+    // leftlen = (len+1) >> 1;
+    // rightlen = len >> 1;
+    //
+    // // Recurse on the first half (opposite to the desired order)
+    // // and the second half (desired order) in parallel
+    // run_coroutines(this->yield,
+    //     [this, start, leftlen, dir](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro.bitonic_sort(start, leftlen, !dir);
+    //     },
+    //     [this, start, leftlen, rightlen, dir](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro.bitonic_sort(start+leftlen, rightlen, dir);
+    //     });
+    // // Merge the two into the desired order
+    // butterfly(start, len, dir);
 }
 
 // Internal function to aid bitonic_sort
 template <typename T>
 void Duoram<T>::Flat::butterfly(address_t start, address_t len, bool dir)
 {
-    if (len < 2) return;
-    if (len == 2) {
-        osort(start, start+1, dir);
-        return;
-    }
-    address_t leftlen, rightlen, offset, num_swaps;
-    // leftlen = (len+1) >> 1;
-    leftlen = 1;
-    while(2*leftlen < len) {
-        leftlen *= 2;
-    }
-    rightlen = len - leftlen;
-    offset = leftlen;
-    num_swaps = rightlen;
-
-    // Sort pairs of elements offset apart in parallel
-    std::vector<coro_t> coroutines;
-    for (address_t i=0; i<num_swaps;++i) {
-        coroutines.emplace_back(
-            [this, start, offset, dir, i](yield_t &yield) {
-                Flat Acoro = context(yield);
-                Acoro.osort(start+i, start+i+offset, dir);
-            });
-    }
-    run_coroutines(this->yield, coroutines);
-    // Recurse on each half in parallel
-    run_coroutines(this->yield,
-        [this, start, leftlen, dir](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro.butterfly(start, leftlen, dir);
-        },
-        [this, start, leftlen, rightlen, dir](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro.butterfly(start+leftlen, rightlen, dir);
-        });
+    // if (len < 2) return;
+    // if (len == 2) {
+    //     osort(start, start+1, dir);
+    //     return;
+    // }
+    // address_t leftlen, rightlen, offset, num_swaps;
+    // // leftlen = (len+1) >> 1;
+    // leftlen = 1;
+    // while(2*leftlen < len) {
+    //     leftlen *= 2;
+    // }
+    // rightlen = len - leftlen;
+    // offset = leftlen;
+    // num_swaps = rightlen;
+    //
+    // // Sort pairs of elements offset apart in parallel
+    // std::vector<coro_t> coroutines;
+    // for (address_t i=0; i<num_swaps;++i) {
+    //     coroutines.emplace_back(
+    //         [this, start, offset, dir, i](yield_t &yield) {
+    //             Flat Acoro = context(yield);
+    //             Acoro.osort(start+i, start+i+offset, dir);
+    //         });
+    // }
+    // run_coroutines(this->yield, coroutines);
+    // // Recurse on each half in parallel
+    // run_coroutines(this->yield,
+    //     [this, start, leftlen, dir](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro.butterfly(start, leftlen, dir);
+    //     },
+    //     [this, start, leftlen, rightlen, dir](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro.butterfly(start+leftlen, rightlen, dir);
+    //     });
 }
 
 // Helper functions to specialize the read and update operations for
@@ -570,36 +569,36 @@ typename Duoram<T>::Shape::template MemRefS<U,FT,FST,Sh,WIDTH>
 template <> template <typename U,typename V>
 void Duoram<RegAS>::Flat::osort(const U &idx1, const V &idx2, bool dir)
 {
-    // Load the values in parallel
-    RegAS val1, val2;
-    run_coroutines(yield,
-        [this, &idx1, &val1](yield_t &yield) {
-            Flat Acoro = context(yield);
-            val1 = Acoro[idx1];
-        },
-        [this, &idx2, &val2](yield_t &yield) {
-            Flat Acoro = context(yield);
-            val2 = Acoro[idx2];
-        });
-    // Get a CDPF
-    CDPF cdpf = tio.cdpf(yield);
-    // Use it to compare the values
-    RegAS diff = val1-val2;
-    auto [lt, eq, gt] = cdpf.compare(tio, yield, diff, tio.aes_ops());
-    RegBS cmp = dir ? lt : gt;
-    // Get additive shares of cmp*diff
-    RegAS cmp_diff;
-    mpc_flagmult(tio, yield, cmp_diff, cmp, diff);
-    // Update the two locations in parallel
-    run_coroutines(yield,
-        [this, &idx1, &cmp_diff](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro[idx1] -= cmp_diff;
-        },
-        [this, &idx2, &cmp_diff](yield_t &yield) {
-            Flat Acoro = context(yield);
-            Acoro[idx2] += cmp_diff;
-        });
+    // // Load the values in parallel
+    // RegAS val1, val2;
+    // run_coroutines(yield,
+    //     [this, &idx1, &val1](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         val1 = Acoro[idx1];
+    //     },
+    //     [this, &idx2, &val2](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         val2 = Acoro[idx2];
+    //     });
+    // // Get a CDPF
+    // CDPF cdpf = tio.cdpf(yield);
+    // // Use it to compare the values
+    // RegAS diff = val1-val2;
+    // auto [lt, eq, gt] = cdpf.compare(tio, yield, diff, tio.aes_ops());
+    // RegBS cmp = dir ? lt : gt;
+    // // Get additive shares of cmp*diff
+    // RegAS cmp_diff;
+    // mpc_flagmult(tio, yield, cmp_diff, cmp, diff);
+    // // Update the two locations in parallel
+    // run_coroutines(yield,
+    //     [this, &idx1, &cmp_diff](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro[idx1] -= cmp_diff;
+    //     },
+    //     [this, &idx2, &cmp_diff](yield_t &yield) {
+    //         Flat Acoro = context(yield);
+    //         Acoro[idx2] += cmp_diff;
+    //     });
 }
 
 // Explicit read from a given index of Duoram memory

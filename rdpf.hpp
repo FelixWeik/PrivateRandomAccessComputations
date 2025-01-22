@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "mpcio.hpp"
-#include "coroutine.hpp"
 #include "types.hpp"
 #include "bitutils.hpp"
 #include "dpf.hpp"

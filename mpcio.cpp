@@ -2,7 +2,6 @@
 #include <sys/resource.h>  // getrusage
 #include "mpcio.hpp"
 #include "rdpf.hpp"
-#include "cdpf.hpp"
 #include "bitutils.hpp"
 #include "coroutine.hpp"
 
@@ -864,26 +863,6 @@ SelectTriple<bit_t> MPCTIO::bitselecttriple(yield_t &yield)
     return val;
 }
 
-CDPF MPCTIO::cdpf(yield_t &yield)
-{
-    CDPF val;
-    if (mpcio.player < 2) {
-        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
-        if (mpcpio.mode != MODE_ONLINE) {
-            yield();
-            iostream_server() >> val;
-            mpcpio.cdpfs[thread_num].inc();
-        } else {
-            mpcpio.cdpfs[thread_num].get(val);
-        }
-    } else if (mpcio.mode != MODE_ONLINE) {
-        auto [ cdpf0, cdpf1 ] = CDPF::generate(aes_ops());
-        iostream_p0() << cdpf0;
-        iostream_p1() << cdpf1;
-        yield();
-    }
-    return val;
-}
 
 // The port number for the P1 -> P0 connection
 static const unsigned short port_p1_p0 = 2115;

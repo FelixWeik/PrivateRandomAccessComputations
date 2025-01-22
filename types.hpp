@@ -21,8 +21,9 @@
 // Values in MPC secret-shared memory are of this type.
 // This is the type of the underlying shared value, not the types of the
 // shares themselves.
-
-#if VALUE_BITS == 64
+#if VALUE_BITS == 128
+using value_t = __m128i;
+#elif VALUE_BITS == 64
 using value_t = uint64_t;
 #elif VALUE_BITS == 32
 using value_t = uint32_t;
