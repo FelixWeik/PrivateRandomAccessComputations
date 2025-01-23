@@ -1,6 +1,6 @@
 all: prac
 
-CXXFLAGS=-march=native -std=c++17 -Wall -Wno-ignored-attributes -ggdb -O3
+CXXFLAGS=-march=native -std=c++17 -Wall -Wno-ignored-attributes -ggdb -O0
 LDFLAGS=-ggdb
 LDLIBS=-lgmp -lgmpxx -lbsd -lboost_system -lboost_context -lboost_chrono -lboost_thread -lpthread
 
