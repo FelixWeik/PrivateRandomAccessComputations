@@ -534,11 +534,38 @@ void MPCTIO::queue_peer(const void *data, size_t len)
 {
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
-        size_t newmsg = mpcpio.peerios[thread_num].queue(data, len, thread_lamport);
+
+        // Wenn das übergebene Datenobjekt ein mpz_class ist, stelle sicher, dass eine Kopie erstellt wird:
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), data, len);
+
+        size_t newmsg = mpcpio.peerios[thread_num].queue(data_copy.data(), len, thread_lamport);
         mpcpio.msgs_sent[thread_num] += newmsg;
         mpcpio.msg_bytes_sent[thread_num] += len;
     }
 }
+
+void MPCTIO::queue_peer(const mpz_class &data) {
+    if (mpcio.player < 2) {
+        size_t len = 0;
+        auto to_send = serialize_to_binary(data, len);
+
+        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        // Sende zuerst die Länge der Nachricht
+        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die eigentlichen Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcpio.peerios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcpio.msgs_sent[thread_num] += newmsg;
+        mpcpio.msg_bytes_sent[thread_num] += len;
+        delete[] to_send;
+    }
+}
+
 
 void MPCTIO::queue_server(const void *data, size_t len)
 {
@@ -552,14 +579,34 @@ void MPCTIO::queue_server(const void *data, size_t len)
 
 // Receive data from the peer or to the server
 
-size_t MPCTIO::recv_peer(void *data, size_t len)
-{
+size_t MPCTIO::recv_peer(void *data, size_t len = VALUE_BITS) {
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
         return mpcpio.peerios[thread_num].recv(data, len, thread_lamport);
     }
     return 0;
 }
+
+size_t MPCTIO::recv_peer(mpz_class &data) {
+    if (mpcio.player < 2) {
+        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        // Zuerst die Größe der Nachricht empfangen
+        size_t len = 0;
+        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_from_binary(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
 
 size_t MPCTIO::recv_server(void *data, size_t len)
 {
@@ -653,15 +700,15 @@ MultTriple MPCTIO::multtriple(yield_t &yield)
         // (X0*Y1 + Y0*X1) = (Z0+Z1)
         value_t X0, Y0, Z0, X1, Y1, Z1;
         // arc4random_buf(&X0, sizeof(X0));
-        random_mpz(X0.get_mpz_t());
+        random_mpz(X0);
         // arc4random_buf(&Y0, sizeof(Y0));
-        random_mpz(Y0.get_mpz_t());
+        random_mpz(Y0);
         // arc4random_buf(&Z0, sizeof(Z0));
-        random_mpz(Z0.get_mpz_t());
+        random_mpz(Z0);
         // arc4random_buf(&X1, sizeof(X1));
-        random_mpz(X1.get_mpz_t());
+        random_mpz(X1);
         // arc4random_buf(&Y1, sizeof(Y1));
-        random_mpz(Y1.get_mpz_t());
+        random_mpz(Y1);
         Z1 = X0 * Y1 + X1 * Y0 - Z0;
         MultTriple T0, T1;
         T0 = std::make_tuple(X0, Y0, Z0);
@@ -695,11 +742,11 @@ HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
         // X0*Y1 = Z0 + Z1
         value_t X0, Z0, Y1, Z1;
         // arc4random_buf(&X0, sizeof(X0));
-        random_mpz(X0.get_mpz_t());
+        random_mpz(X0);
         // arc4random_buf(&Z0, sizeof(Z0));
-        random_mpz(Z0.get_mpz_t());
+        random_mpz(Z0);
         // arc4random_buf(&Y1, sizeof(Y1));
-        random_mpz(Y1.get_mpz_t());
+        random_mpz(Y1);
         Z1 = X0 * Y1 - Z0;
         HalfTriple H0, H1;
         H0 = std::make_tuple(X0, Z0);
@@ -728,15 +775,15 @@ MultTriple MPCTIO::andtriple(yield_t &yield)
         // (X0&Y1 ^ Y0&X1) = (Z0^Z1)
         value_t X0, Y0, Z0, X1, Y1, Z1;
         // arc4random_buf(&X0, sizeof(X0));
-        random_mpz(X0.get_mpz_t());
+        random_mpz(X0);
         // arc4random_buf(&Y0, sizeof(Y0));
-        random_mpz(Y0.get_mpz_t());
+        random_mpz(Y0);
         // arc4random_buf(&Z0, sizeof(Z0));
-        random_mpz(Z0.get_mpz_t());
+        random_mpz(Z0);
         // arc4random_buf(&X1, sizeof(X1));
-        random_mpz(X1.get_mpz_t());
+        random_mpz(X1);
         // arc4random_buf(&Y1, sizeof(Y1));
-        random_mpz(Y1.get_mpz_t());
+        random_mpz(Y1);
         Z1 = (X0 & Y1) ^ (X1 & Y0) ^ Z0;
         AndTriple T0, T1;
         T0 = std::make_tuple(X0, Y0, Z0);
@@ -755,13 +802,16 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
         if (mpcpio.mode != MODE_ONLINE) {
             yield();
             for (size_t i=0; i<num; ++i) {
-                SelectTriple<DPFnode> v;
                 uint8_t Xbyte;
                 recv_server(&Xbyte, sizeof(Xbyte));
-                v.X = Xbyte & 1;
-                recv_server(&v.Y, sizeof(v.Y));
-                recv_server(&v.Z, sizeof(v.Z));
-                queued_nodeselecttriples.emplace_back(v);
+                bit_t X = Xbyte & 1;
+
+                DPFnode z, y;
+                recv_server(&y, sizeof(y));
+                recv_server(&z, sizeof(z));
+
+                // Direktes Emplace ohne temporäres Objekt
+                queued_nodeselecttriples.emplace_back(X, std::move(y), std::move(z));
             }
             remaining_nodesselecttriples += num;
         } else {
@@ -776,24 +826,24 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             DPFnode tmp0, tmpAnd0;
 
             // X0 = arc4random() & 1;
-            random_mpz(tmp0.get_mpz_t(), 2*VALUE_BITS);
+            random_mpz(tmp0, 2*VALUE_BITS);
             mpz_and(tmpAnd0.get_mpz_t(), tmp0.get_mpz_t(), DPFnode(1).get_mpz_t());
             X0 = (mpz_cmp_ui(tmpAnd0.get_mpz_t(), 0) != 0) ? 1 : 0;
 
             // arc4random_buf(&Y0, sizeof(Y0));  //TODO Segfault erwischt!
-            random_mpz(Y0.get_mpz_t(), 2*VALUE_BITS);
+            random_mpz(Y0, 2*VALUE_BITS);
 
             // arc4random_buf(&Z0, sizeof(Z0));
-            random_mpz(Z0.get_mpz_t(), 2*VALUE_BITS);
+            random_mpz(Z0, 2*VALUE_BITS);
 
             DPFnode tmp1, tmpAnd1;
             // X1 = arc4random() & 1;
-            random_mpz(tmp1.get_mpz_t(), 2*VALUE_BITS);
+            random_mpz(tmp1, 2*VALUE_BITS);
             mpz_and(tmpAnd1.get_mpz_t(), tmp1.get_mpz_t(), DPFnode(1).get_mpz_t());
             X1 = (mpz_cmp_ui(tmpAnd1.get_mpz_t(), 0) != 0);
 
             // arc4random_buf(&Y1, sizeof(Y1));
-            random_mpz(Y1.get_mpz_t(), 2*VALUE_BITS);
+            random_mpz(Y1, 2*VALUE_BITS);
 
             // mpz_init_set(X0ext.get_mpz_t(), 0);
             // mpz_init_set(X1ext.get_mpz_t(), 0);
@@ -828,16 +878,19 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
 
 SelectTriple<DPFnode> MPCTIO::nodeselecttriple(yield_t &yield)
 {
+    //TODO es wird immer das selbe selectriple verwendet weil pop nicht mehr aufgerufen wird
     SelectTriple<DPFnode> val;
     if (remaining_nodesselecttriples == 0) {
         request_nodeselecttriples(yield, 1);
     }
     if (mpcio.player < 2) {
-        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+        auto &mpcpio = static_cast<MPCPeerIO&>(mpcio);
         if (mpcpio.mode != MODE_ONLINE) {
             val = queued_nodeselecttriples.front();
-            queued_nodeselecttriples.pop_front();
-            --remaining_nodesselecttriples;
+            std::cout << "size of dequeue: " << queued_nodeselecttriples.size() << std::endl;
+            std::cout << "size of dequeue 2: " << remaining_nodesselecttriples<< std::endl;
+            // queued_nodeselecttriples.pop_front();
+            // --remaining_nodesselecttriples;
         } else {
             std::cerr << "Attempted to read SelectTriple<DPFnode> in online phase\n";
         }
@@ -870,18 +923,18 @@ SelectTriple<value_t> MPCTIO::valselecttriple(yield_t &yield)
         value_t Y0, Z0, Y1, Z1;
         value_t tmp0, tmp1;
         // arc4random_buf(&Y0, sizeof(Y0));
-        random_mpz(Y0.get_mpz_t(), sizeof(Y0));
+        random_mpz(Y0, sizeof(Y0));
         // arc4random_buf(&Z0, sizeof(Z0));
-        random_mpz(Z0.get_mpz_t(), sizeof(Z0));
+        random_mpz(Z0, sizeof(Z0));
         // X0 = arc4random() & 1;
-        random_mpz(tmp0.get_mpz_t(), sizeof(tmp0));
+        random_mpz(tmp0, sizeof(tmp0));
         X0 = (mpz_cmp_ui(tmp0.get_mpz_t(), 0) != 0) ? 1 : 0;
 
         // X1 = arc4random() & 1;
-        random_mpz(tmp1.get_mpz_t(), sizeof(tmp1));
+        random_mpz(tmp1, sizeof(tmp1));
         X1 = (mpz_cmp_ui(tmp1.get_mpz_t(), 0) != 0) ? 1 : 0;
         // arc4random_buf(&Y1, sizeof(Y1));
-        random_mpz(Y1.get_mpz_t(), sizeof(Y1));
+        random_mpz(Y1, sizeof(Y1));
 
         value_t X0ext, X1ext;
         // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
