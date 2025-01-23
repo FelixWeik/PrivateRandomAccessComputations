@@ -120,12 +120,22 @@ inline mpz_class m128i_to_mpz_class(__m128i vec) {
 }
 
 // populates out with a random value of size nbits
-inline void random_mpz(mpz_ptr out, size_t nbits = VALUE_BITS, int seed = 42) {
+inline void random_mpz(mpz_class &out, size_t nbits = VALUE_BITS, int seed = 42) {
     gmp_randstate_t state;
     gmp_randinit_default(state);
     gmp_randseed_ui(state, seed);
-    mpz_urandomb(out, state, nbits);
+    mpz_urandomb(out.get_mpz_t(), state, nbits);
     gmp_randclear(state);
+}
+
+inline mpz_class random_mpz(size_t nbits = VALUE_BITS, int seed = 42) {
+    mpz_class res;
+    gmp_randstate_t state;
+    gmp_randinit_default(state);
+    gmp_randseed_ui(state, seed);
+    mpz_urandomb(res.get_mpz_t(), state, nbits);
+    gmp_randclear(state);
+    return res;
 }
 
 inline uint8_t get_lsb(const mpz_class& block) {
@@ -142,14 +152,13 @@ inline mpz_class clear_lsb(const mpz_class& block, uint8_t bits = 0b01) {
 }
 
 inline mpz_class set_lsb(const mpz_class& block, bool val = true) {
-    mpz_class result; //TODO hier ist der Segfault bestimmt
+    mpz_class result = block;
     clear_lsb(result, 0b01);
-    mpz_t mask;
-    mpz_init_set_ui(mask, val ? 0b01 : 0b00);
-    mpz_ior(result.get_mpz_t(), result.get_mpz_t(), mask);
-    mpz_clear(mask);
+    mpz_class mask = val ? 0b01 : 0b00;
+    result |= mask;
     return result;
 }
+
 
 inline uint8_t parity(const mpz_class& block) {
     mpz_t temp;
@@ -369,6 +378,22 @@ inline uint8_t bit_at(const __m128i &block, uint8_t position)
         uint64_t low = uint64_t(_mm_cvtsi128_si64x(block));
         return !!(low & (uint64_t(1)<<position));
     }
+}
+
+inline mpz_class deserialize_from_binary(const char* serialized, size_t len) {
+    mpz_class value;
+    mpz_import(value.get_mpz_t(), len, 1, sizeof(char), 0, 0, serialized);
+    return value;
+}
+
+inline char* serialize_to_binary(const mpz_class& value, size_t& len) {
+    void* data = mpz_export(nullptr, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
+
+    char* serialized = new char[len];
+    std::memcpy(serialized, data, len);
+    free(data);
+
+    return serialized;
 }
 
 #endif
