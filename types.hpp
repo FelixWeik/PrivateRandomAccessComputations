@@ -687,13 +687,9 @@ inline std::array<S,N> &operator^=(std::array<S,N> &A, const std::array<S,N> &B)
 template <typename S, size_t N>
 inline std::array<S,N> &xor_lsb(std::array<S,N> &A, bit_t B)
 {
-    mpz_t value;
-    if (B) {
-        mpz_set_ui(value, 1);
-    } else {
-        mpz_set_ui(value, 0);
-    }
-    mpz_xor(A[0].get_mpz_t(), A[0].get_mpz_t(), value);
+    mpz_class value;
+    value = B ? 1 : 0;
+    A[0] ^= value;
     return A;
 }
 
