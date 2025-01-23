@@ -730,17 +730,24 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
     bool peer_parity_bit;
     // Exchange the parities and do mpc_reconstruct_choice at the
     // same time (bundled into the same rounds)
-    run_coroutines(yield,
-        [&tio, &our_parity_bit, &peer_parity_bit](yield_t &yield) {
-            tio.queue_peer(&our_parity_bit, 1);
-            yield();
-            uint8_t peer_parity_byte;
-            tio.recv_peer(&peer_parity_byte, 1);
-            peer_parity_bit = peer_parity_byte & 1;
-        },
-        [&tio, &CWL, &L, &R, bs_choice](yield_t &yield) {
-            mpc_reconstruct_choice(tio, yield, CWL, bs_choice, R, L);
-        });
+    tio.queue_peer(&our_parity_bit, 1);
+    yield();
+    uint8_t peer_parity_byte;
+    tio.recv_peer(&peer_parity_byte, 1);
+    peer_parity_bit = peer_parity_byte & 1;
+    mpc_reconstruct_choice(tio, yield, CWL, bs_choice, R, L);
+    std::cout << "Danach" << std::endl;
+    // run_coroutines(yield,
+    //     [&tio, &our_parity_bit, &peer_parity_bit](yield_t &yield) {
+    //         tio.queue_peer(&our_parity_bit, 1);
+    //         yield();
+    //         uint8_t peer_parity_byte;
+    //         tio.recv_peer(&peer_parity_byte, 1);
+    //         peer_parity_bit = peer_parity_byte & 1;
+    //     },
+    //     [&tio, &CWL, &L, &R, bs_choice](yield_t &yield) {
+    //         mpc_reconstruct_choice(tio, yield, CWL, bs_choice, R, L);
+    //     });
     cfbit = our_parity_bit ^ peer_parity_bit;
     CW = CWL;
     NT CWR = CWL;
@@ -840,20 +847,15 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
 {
     int player = tio.player();
     size_t &aes_ops = tio.aes_ops();
-    int seed_int = 42;
 
     // Choose a random seed
     // arc4random_buf(&seed, sizeof(seed));
-    gmp_randstate_t state;
-    gmp_randinit_default(state);
-    gmp_randseed_ui(state, seed_int);
+    DPFnode tmp;
+    tmp = random_mpz(2*VALUE_BITS);
 
-    mpz_class seed;
-
-    mpz_urandomb(seed.get_mpz_t(), state, VALUE_BITS);
     // Ensure the flag bits (the lsb of each node) are different => p0 has lsb 0, p1 lsb 1 by default
     // Note the invariant of dpf construction, only on the path to i* the flag bits must be different (root always on path)
-    seed = set_lsb(seed, !!player); //TODO neinein er ist hier
+    seed = set_lsb(tmp, !!player);
     cfbits = 0;
     leaf_cfbits = 0;
     whichhalf = (player == 1);
@@ -904,39 +906,31 @@ RDPF<WIDTH>::RDPF(MPCTIO &tio, yield_t &yield,
         // leaf layer in parallel coroutines if we're making an
         // incremental RDPF.  If not, exactly one of these coroutines
         // will be created, and we just run that one.
-        std::vector<coro_t> coroutines;
+        // std::vector<coro_t> coroutines;
         if (level < depth-1) {
-            coroutines.emplace_back([this, &tio, curlevel, nextlevel,
-                player, level, depth, bs_choice, save_expansion,
-                &aes_ops] (yield_t &yield) {
-                    DPFnode CW;
-                    bool cfbit;
-                    // This field is ignored when we're not expanding to a leaf
-                    // level, but it needs to be an lvalue reference.
-                    int noleafinfo = 0;
-                    create_level(tio, yield, curlevel, nextlevel, player, level,
-                        depth, bs_choice, CW, cfbit, save_expansion, noleafinfo,
-                        aes_ops);
-                    cfbits |= (value_t(cfbit)<<level);
-                    if (player < 2) {
-                        cw.push_back(CW);
-                    }
-                });
+            DPFnode CW;
+            bool cfbit;
+            // This field is ignored when we're not expanding to a leaf
+            // level, but it needs to be an lvalue reference.
+            int noleafinfo = 0;
+            create_level(tio, yield, curlevel, nextlevel, player, level,
+                depth, bs_choice, CW, cfbit, save_expansion, noleafinfo,
+                aes_ops);
+            cfbits |= (value_t(cfbit)<<level);
+            if (player < 2) {
+                cw.push_back(CW);
+            }
         }
         if (incremental || level == depth-1) {
-            coroutines.emplace_back([this, &tio, curlevel, leaflevel,
-                player, level, depth, bs_choice, save_expansion,
-                &aes_ops](yield_t &yield) {
-                    LeafNode CW;
-                    bool cfbit;
-                    create_level(tio, yield, curlevel, leaflevel, player,
-                        level, depth, bs_choice, CW, cfbit, save_expansion,
-                        li[depth-level-1], aes_ops);
-                    leaf_cfbits |= (value_t(cfbit)<<(depth-level-1));
-                    li[depth-level-1].leaf_cw = CW;
-                });
+            LeafNode CW;
+            bool cfbit;
+            create_level(tio, yield, curlevel, leaflevel, player,
+                level, depth, bs_choice, CW, cfbit, save_expansion,
+                li[depth-level-1], aes_ops);
+            leaf_cfbits |= (value_t(cfbit)<<(depth-level-1));
+            li[depth-level-1].leaf_cw = CW;
         }
-        run_coroutines(yield, coroutines);
+        // run_coroutines(yield, coroutines);
 
         if (!save_expansion) {
             delete[] leaflevel;
@@ -1053,7 +1047,11 @@ typename RDPFTriple<WIDTH>::node RDPFTriple<WIDTH>::descend(
     nbits_t parentdepth, bit_t whichchild,
     size_t &aes_ops) const
 {
-    auto [P0, P1, P2] = parent;
+    // auto [P0, P1, P2] = parent;
+    DPFnode P0 = std::get<0>(parent);
+    DPFnode P1 = std::get<1>(parent);
+    DPFnode P2 = std::get<2>(parent);
+
     DPFnode C0, C1, C2;
     C0 = dpf[0].descend(P0, parentdepth, whichchild, aes_ops);
     C1 = dpf[1].descend(P1, parentdepth, whichchild, aes_ops);

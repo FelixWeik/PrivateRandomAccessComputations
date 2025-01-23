@@ -332,45 +332,61 @@ bool mpc_reconstruct(MPCTIO &tio, yield_t &yield, RegBS f)
 // 6 64-bit words sent in 2 messages
 // consumes one AndTriple
 void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
-    DPFnode &z, RegBS f, DPFnode x, DPFnode y)
+    DPFnode &z, RegBS f, DPFnode &x, DPFnode &y)
 {
     // Sign-extend f (so 0 -> 0000...0; 1 -> 1111...1)
-    auto fext = GMPMasks<VALUE_BITS>::if_mask[f.bshare];
+    // DPFnode fext = GMPMasks<VALUE_BITS>::if_mask[f.bshare];
 
     // Compute XOR shares of f & (x ^ y)
-    auto [X, Y, Z] = tio.nodeselecttriple(yield);
+
+    SelectTriple<DPFnode> triple = tio.nodeselecttriple(yield);
+    auto X = triple.X;
+    // DPFnode Y(triple.Y);  man kann auch direkt darauf zugreifen
+    // DPFnode Z(triple.Z);
 
     bit_t blind_f = f.bshare ^ X;
     DPFnode d = x ^ y;
-    DPFnode blind_d = d ^ Y;
+    DPFnode blind_d = d ^ triple.Y;
+
 
     // Send the blinded values
     tio.queue_peer(&blind_f, sizeof(blind_f));
-    tio.queue_peer(&blind_d, sizeof(blind_d));
+    tio.queue_peer(blind_d);
 
     yield();
 
     // Read the peer's values
-    bit_t peer_blind_f = 0;
-    DPFnode peer_blind_d;
+    bit_t peer_blind_f = false;
+    DPFnode peer_blind_d, tmp;
     tio.recv_peer(&peer_blind_f, sizeof(peer_blind_f));
-    tio.recv_peer(&peer_blind_d, sizeof(peer_blind_d));
+    tio.recv_peer(tmp);
+    peer_blind_d = std::move(tmp);
 
     // Compute _our share_ of f ? x : y = (f * (x ^ y))^x
-    auto peer_blind_fext = GMPMasks<VALUE_BITS>::if_mask[peer_blind_f];
-    DPFnode zshare =
-            (fext & peer_blind_d) ^ (Y & peer_blind_fext) ^
-            (fext & d) ^ (Z ^ x);
+    // DPFnode zshare =
+    //         (fext & peer_blind_d) ^ (triple.Y & peer_blind_fext) ^
+    //         (fext & d) ^ (Z ^ x);
+    DPFnode tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, zshare;
+    mpz_and(tmp0.get_mpz_t(), GMPMasks<VALUE_BITS>::if_mask[f.bshare].get_mpz_t(), peer_blind_d.get_mpz_t());
+    mpz_and(tmp1.get_mpz_t(), triple.Y.get_mpz_t(), GMPMasks<VALUE_BITS>::if_mask[peer_blind_f].get_mpz_t());
+    mpz_and(tmp2.get_mpz_t(), GMPMasks<VALUE_BITS>::if_mask[f.bshare].get_mpz_t(), d.get_mpz_t());
+    mpz_xor(tmp3.get_mpz_t(), triple.Z.get_mpz_t(), x.get_mpz_t());
+    mpz_xor(tmp4.get_mpz_t(), tmp0.get_mpz_t(), tmp1.get_mpz_t());
+    mpz_xor(tmp5.get_mpz_t(), tmp2.get_mpz_t(), tmp3.get_mpz_t());
+    mpz_xor(zshare.get_mpz_t(), tmp4.get_mpz_t(), tmp5.get_mpz_t());
 
     // Now exchange shares
-    tio.queue_peer(&zshare, sizeof(zshare));
+    tio.queue_peer(zshare);  // wurde im letzten versuch noch kopiert vor dem versenden
 
     yield();
 
     DPFnode peer_zshare;
-    tio.recv_peer(&peer_zshare, sizeof(peer_zshare));
+    tio.recv_peer(peer_zshare);
+    // peer_zshare = zshare_tmp;
 
+    std::cout << "Davor" << std::endl;
     z = zshare ^ peer_zshare;
+    // mpz_xor(z.get_mpz_t(), zshare.get_mpz_t(), peer_zshare.get_mpz_t());
 }
 
 // P0 and P1 hold bit shares of x and y.  Set z to bit shares of x & y.

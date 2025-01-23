@@ -138,7 +138,7 @@ bool mpc_reconstruct(MPCTIO &tio, yield_t &yield, RegBS x);
 // 6 64-bit words sent in 2 messages
 // consumes one AndTriple
 void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
-    DPFnode &z, RegBS f, DPFnode x, DPFnode y);
+    DPFnode &z, RegBS f, DPFnode &x, DPFnode &y);
 
 // As above, but for arrays of DPFnode
 //

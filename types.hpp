@@ -53,7 +53,7 @@ struct RegAS {
     // Set each side's share to a random value nbits bits long
     void randomize(size_t nbits = VALUE_BITS) {
         value_t mask = MASKBITS(nbits);
-        random_mpz(ashare.get_mpz_t(), sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
+        random_mpz(ashare, sizeof(ashare));  // fills ashare pseudorandomly with sizeof(ashare) bits
         ashare &= mask;
     }
 
@@ -782,7 +782,11 @@ inline DPFnode &xor_lsb(DPFnode &A, bit_t B)
 template <typename V>
 struct SelectTriple {
     bit_t X;
-    V Y, Z;
+    V Y{}, Z{};
+
+    SelectTriple() = default;
+
+    SelectTriple(bit_t x, V y, V z) : X(x), Y(std::move(y)), Z(std::move(z)) {}
 };
 // Of the three options for V, we only ever store V = value_t
 struct ValSelectTripleName { static constexpr const char *name = "s"; };
