@@ -251,16 +251,13 @@ inline __m128i xor_if(const __m128i & block1, const __m128i & block2, __m128i fl
     return _mm_xor_si128(block1, _mm_and_si128(block2, flag));
 }
 
-inline mpz_class xor_if(const mpz_class & block1, const mpz_class & block2, mpz_class flag){
-    mpz_t temp_block2;
-
-    mpz_init(temp_block2);
-    mpz_and(temp_block2, block2.get_mpz_t(), flag.get_mpz_t());
+inline mpz_class xor_if(const mpz_class & block1, const mpz_class & block2, bool flag){
+    mpz_class temp_block2;
+    mpz_class flag_mpz = flag ? 1 : 0;
+    temp_block2 = block2 & flag_mpz;
 
     mpz_class res;
-    mpz_xor(res.get_mpz_t(), block1.get_mpz_t(), temp_block2);
-
-    mpz_clear(temp_block2);
+    res = block1 & temp_block2;
     return res;
 }
 
