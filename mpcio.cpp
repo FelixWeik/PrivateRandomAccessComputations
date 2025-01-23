@@ -566,6 +566,27 @@ void MPCTIO::queue_peer(const mpz_class &data) {
     }
 }
 
+void MPCTIO::queue_server(const mpz_class &data) {
+    if (mpcio.player < 2) {
+        size_t len = 0;
+        auto to_send = serialize_to_binary(data, len);
+
+        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        // Sende zuerst die Länge der Nachricht
+        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die eigentlichen Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcpio.serverios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcpio.msgs_sent[thread_num] += newmsg;
+        mpcpio.msg_bytes_sent[thread_num] += len;
+        delete[] to_send;
+    }
+}
+
 
 void MPCTIO::queue_server(const void *data, size_t len)
 {
@@ -607,6 +628,27 @@ size_t MPCTIO::recv_peer(mpz_class &data) {
     return 0;
 }
 
+size_t MPCTIO::recv_server(mpz_class &data) {
+    if (mpcio.player < 2) {
+        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        // Zuerst die Größe der Nachricht empfangen
+        size_t len = 0;
+        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcpio.serverios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_from_binary(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
+
 
 size_t MPCTIO::recv_server(void *data, size_t len)
 {
@@ -619,6 +661,27 @@ size_t MPCTIO::recv_server(void *data, size_t len)
 
 // Queue up data to p0 or p1
 
+void MPCTIO::queue_p0(const mpz_class &data) {
+    if (mpcio.player == 2) {
+        size_t len = 0;
+        auto to_send = serialize_to_binary(data, len);
+
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Sende zuerst die Länge der Nachricht
+        mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die eigentlichen Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len;
+    }
+}
+
+
 void MPCTIO::queue_p0(const void *data, size_t len)
 {
     if (mpcio.player == 2) {
@@ -628,6 +691,27 @@ void MPCTIO::queue_p0(const void *data, size_t len)
         mpcsrvio.msg_bytes_sent[thread_num] += len;
     }
 }
+
+void MPCTIO::queue_p1(mpz_class &data) {
+    if (mpcio.player == 2) {
+        size_t len = 0;
+        auto to_send = serialize_to_binary(data, len);
+
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Sende zuerst die Länge der Nachricht
+        mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die eigentlichen Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len;
+    }
+}
+
 
 void MPCTIO::queue_p1(const void *data, size_t len)
 {
@@ -641,12 +725,53 @@ void MPCTIO::queue_p1(const void *data, size_t len)
 
 // Receive data from p0 or p1
 
+size_t MPCTIO::recv_p0(mpz_class &data) {
+    if (mpcio.player == 2) {
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Zuerst die Größe der Nachricht empfangen
+        size_t len = 0;
+        size_t res = mpcsrvio.p0ios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcsrvio.p0ios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_from_binary(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
+
 size_t MPCTIO::recv_p0(void *data, size_t len)
 {
     if (mpcio.player == 2) {
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
         return mpcsrvio.p0ios[thread_num].recv(data, len, thread_lamport);
     }
+    return 0;
+}
+
+size_t MPCTIO::recv_p1(mpz_class &data) {
+    if (mpcio.player == 2) {
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Zuerst die Größe der Nachricht empfangen
+        size_t len = 0;
+        size_t res = mpcsrvio.p1ios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcsrvio.p1ios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_from_binary(buffer.data(), len);
+        }
+        return res;
+    }
+
     return 0;
 }
 

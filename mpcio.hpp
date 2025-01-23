@@ -410,12 +410,14 @@ public:
 
     void queue_peer(const mpz_class &data);
     void queue_peer(const void *data, size_t len);
+    void queue_server(const mpz_class &data);
     void queue_server(const void *data, size_t len);
 
     // Receive data from the peer or to the server
 
-    size_t recv_peer(void *data, size_t len);
     size_t recv_peer(mpz_class &data);
+    size_t recv_peer(void *data, size_t len);
+    size_t recv_server(mpz_class &data);
     size_t recv_server(void *data, size_t len);
 
     // Or get these MPCSingleIOStreams
@@ -426,12 +428,16 @@ public:
 
     // Queue up data to p0 or p1
 
+    void queue_p0(const mpz_class &data);
     void queue_p0(const void *data, size_t len);
+    void queue_p1(mpz_class &data);
     void queue_p1(const void *data, size_t len);
 
     // Receive data from p0 or p1
 
+    size_t recv_p0(mpz_class &data);
     size_t recv_p0(void *data, size_t len);
+    size_t recv_p1(mpz_class &data);
     size_t recv_p1(void *data, size_t len);
 
     // Or get these MPCSingleIOStreams
