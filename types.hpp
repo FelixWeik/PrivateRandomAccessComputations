@@ -224,7 +224,7 @@ struct RegXS {
         value_t mask = MASKBITS(nbits);
         mpz_urandomb(xshare.get_mpz_t(), state, nbits);
         // arc4random_buf(&xshare, sizeof(xshare));
-        xshare &= mask;  //TODO HIER War ein segfault!!!!!
+        xshare &= mask;
     }
 
     void test(const RegXS& xreg) const {
@@ -780,7 +780,11 @@ struct SelectTriple {
     bit_t X;
     V Y{}, Z{};
 
-    SelectTriple() = default;
+    SelectTriple() {
+        Y = 0;
+        Z = 0;
+        X = false;
+    }
 
     SelectTriple(bit_t x, V y, V z) : X(x), Y(std::move(y)), Z(std::move(z)) {}
 };
