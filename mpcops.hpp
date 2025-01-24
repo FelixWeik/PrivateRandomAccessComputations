@@ -13,7 +13,7 @@
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_mul(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegAS x, RegAS y,
+    RegAS &z, RegAS &x, RegAS &y,
     nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 both hold additive shares of x (shares are x0 and x1) and y
@@ -24,7 +24,7 @@ void mpc_mul(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_cross(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegAS x, RegAS y,
+    RegAS &z, RegAS &x, RegAS &y,
     nbits_t nbits = VALUE_BITS);
 
 // P0 holds the (complete) value x, P1 holds the (complete) value y;
@@ -38,8 +38,8 @@ void mpc_cross(MPCTIO &tio, yield_t &yield,
 // 1 word sent in 1 message
 // consumes 1 HalfTriple
 void mpc_valuemul(MPCTIO &tio, yield_t &yield,
-    RegAS &z, value_t x,
-    nbits_t nbits = VALUE_BITS, bool tally = true);
+    RegAS &z, const value_t& x,
+    nbits_t nbits, bool tally = true);
 
 // P0 and P1 hold bit shares f0 and f1 of the single bit f, and additive
 // shares y0 and y1 of the value y; compute additive shares of
@@ -50,7 +50,7 @@ void mpc_valuemul(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_flagmult(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegBS f, RegAS y,
+    RegAS &z, RegBS f, RegAS &y,
     nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 hold bit shares f0 and f1 of the single bit f, and additive
@@ -62,7 +62,7 @@ void mpc_flagmult(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegBS f, RegAS x, RegAS y,
+    RegAS &z, RegBS f, RegAS &x, RegAS &y,
     nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 hold bit shares f0 and f1 of the single bit f, and XOR
@@ -73,7 +73,7 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 SelectTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegXS &z, RegBS f, RegXS x, RegXS y,
+    RegXS &z, RegBS f, RegXS &x, RegXS &y,
     nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 hold bit shares f0 and f1 of the single bit f, and bit
@@ -84,7 +84,7 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
 // 1 byte sent in 1 message
 // consumes 1/64 AndTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegBS &z, RegBS f, RegBS x, RegBS y);
+    RegBS &z, RegBS &f, RegBS &x, RegBS &y);
 
 // P0 and P1 hold bit shares f0 and f1 of the single bit f, and additive
 // shares of the values x and y. Obliviously swap x and y; that is,
@@ -108,7 +108,7 @@ void mpc_oswap(MPCTIO &tio, yield_t &yield,
 // nbits-1 words sent in 1 message
 // consumes nbits-1 HalfTriples
 void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
-    RegAS &as_x, RegXS xs_x,
+    RegAS &as_x, RegXS &xs_x,
     nbits_t nbits = VALUE_BITS, bool tally = true);
 
 // P0 and P1 hold XOR shares x0 and x1 of x. x is at most nbits bits
@@ -116,14 +116,14 @@ void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
 //
 // Cost: 1 word sent in 1 message
 value_t mpc_reconstruct(MPCTIO &tio, yield_t &yield,
-    RegXS f, nbits_t nbits = VALUE_BITS);
+    RegXS &f, nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 hold additive shares x0 and x1 of x. x is at most nbits
 // bits long. Return x to P0 and P1 (and 0 to P2).
 //
 // Cost: 1 word sent in 1 message
 value_t mpc_reconstruct(MPCTIO &tio, yield_t &yield,
-    RegAS x, nbits_t nbits = VALUE_BITS);
+    RegAS& x, nbits_t nbits = VALUE_BITS);
 
 // P0 and P1 hold bit shares f0 and f1 of f. Return f to P0 and P1 (and
 // 0 to P2).

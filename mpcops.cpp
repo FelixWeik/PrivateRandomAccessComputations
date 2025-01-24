@@ -9,7 +9,7 @@
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_mul(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegAS x, RegAS y,
+    RegAS &z, RegAS &x, RegAS &y,
     nbits_t nbits)
 {
     const value_t mask = MASKBITS(nbits);
@@ -27,26 +27,27 @@ void mpc_mul(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_cross(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegAS x, RegAS y,
+    RegAS &z, RegAS &x, RegAS &y,
     nbits_t nbits)
 {
     const value_t mask = MASKBITS(nbits);
-    size_t nbytes = BITBYTES(nbits);
-    auto [X, Y, Z] = tio.multtriple(yield);
+    auto [X, Y, Z] = std::move(tio.multtriple(yield));
 
     // Send x+X and y+Y
     value_t blind_x = (x.ashare + X) & mask;
     value_t blind_y = (y.ashare + Y) & mask;
 
-    tio.queue_peer(&blind_x, nbytes);
-    tio.queue_peer(&blind_y, nbytes);
+    tio.queue_peer(blind_x);
+    tio.queue_peer(blind_y);
 
     yield();
 
     // Read the peer's x+X and y+Y
-    value_t  peer_blind_x=0, peer_blind_y=0;
-    tio.recv_peer(&peer_blind_x, nbytes);
-    tio.recv_peer(&peer_blind_y, nbytes);
+    value_t  peer_blind_x, peer_blind_y;
+    tio.recv_peer(peer_blind_x);
+    tio.recv_peer(peer_blind_y);
+
+    yield();
 
     z.ashare = ((x.ashare * peer_blind_y) - (Y * peer_blind_x) + Z) & mask;
 }
@@ -62,28 +63,28 @@ void mpc_cross(MPCTIO &tio, yield_t &yield,
 // 1 word sent in 1 message
 // consumes 1 HalfTriple
 void mpc_valuemul(MPCTIO &tio, yield_t &yield,
-    RegAS &z, value_t x,
+    RegAS &z, const value_t& x,
     nbits_t nbits, bool tally)
 {
     const value_t mask = MASKBITS(nbits);
-    size_t nbytes = BITBYTES(nbits);
-    auto [X, Z] = tio.halftriple(yield, tally);
+    HalfTriple h = tio.halftriple(yield, tally);
 
     // Send x+X
-    value_t blind_x = (x + X) & mask;
+    value_t blind_x;
+    blind_x =(x + std::get<0>(h)) & mask;
 
-    tio.queue_peer(&blind_x, nbytes);
+    tio.queue_peer(blind_x);
 
     yield();
 
     // Read the peer's y+Y
-    value_t  peer_blind_y=0;
-    tio.recv_peer(&peer_blind_y, nbytes);
+    value_t  peer_blind_y;
+    tio.recv_peer(peer_blind_y);
 
     if (tio.player() == 0) {
-        z.ashare = ((x * peer_blind_y) + Z) & mask;
+        z.ashare = ((x * peer_blind_y) + std::get<1>(h)) & mask;
     } else if (tio.player() == 1) {
-        z.ashare = ((-X * peer_blind_y) + Z) & mask;
+        z.ashare = ((-std::get<0>(h) * peer_blind_y) + std::get<1>(h)) & mask;
     }
 }
 
@@ -96,7 +97,7 @@ void mpc_valuemul(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_flagmult(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegBS f, RegAS y,
+    RegAS &z, RegBS f, RegAS &y,
     nbits_t nbits)
 {
     const value_t mask = MASKBITS(nbits);
@@ -105,7 +106,9 @@ void mpc_flagmult(MPCTIO &tio, yield_t &yield,
     value_t bs_fval = value_t(f.bshare);
     RegAS fval;
     fval.ashare = bs_fval;
-    mpc_cross(tio, yield, z, y*(1-2*bs_fval), fval, nbits);
+    RegAS tmp;
+    tmp = y * (1 - 2 * bs_fval);
+    mpc_cross(tio, yield, z, tmp, fval, nbits);
 
     // Add f0*y0 (and the peer will add f1*y1)
     z.ashare = (z.ashare + bs_fval*y.ashare) & mask;
@@ -125,13 +128,15 @@ void mpc_flagmult(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 MultTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegAS &z, RegBS f, RegAS x, RegAS y,
+    RegAS &z, RegBS f, RegAS &x, RegAS &y,
     nbits_t nbits)
 {
     const value_t mask = MASKBITS(nbits);
 
     // The desired result is z = x + f * (y-x)
-    mpc_flagmult(tio, yield, z, f, y-x, nbits);
+    RegAS tmp;
+    tmp = y-x;
+    mpc_flagmult(tio, yield, z, f, tmp, nbits);
     z.ashare = (z.ashare + x.ashare) & mask;
 }
 
@@ -143,16 +148,15 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
 // 2 words sent in 1 message
 // consumes 1 SelectTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegXS &z, RegBS f, RegXS x, RegXS y,
+    RegXS &z, RegBS f, RegXS &x, RegXS &y,
     nbits_t nbits)
 {
     const value_t mask = MASKBITS(nbits);
-    size_t nbytes = BITBYTES(nbits);
     // Sign-extend f (so 0 -> 0000...0; 1 -> 1111...1)
     value_t fext = (-value_t(f.bshare)) & mask;
 
     // Compute XOR shares of f & (x ^ y)
-    auto [X, Y, Z] = tio.valselecttriple(yield);
+    auto [X, Y, Z] = std::move(tio.valselecttriple(yield));
 
     bit_t blind_f = f.bshare ^ X;
     value_t d = (x.xshare ^ y.xshare) & mask;
@@ -160,7 +164,7 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
 
     // Send the blinded values
     tio.queue_peer(&blind_f, sizeof(blind_f));
-    tio.queue_peer(&blind_d, nbytes);
+    tio.queue_peer(blind_d);
 
     yield();
 
@@ -169,7 +173,7 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
     value_t peer_blind_d;
     tio.recv_peer(&peer_blind_f, sizeof(peer_blind_f));
     peer_blind_f &= 1;
-    tio.recv_peer(&peer_blind_d, nbytes);
+    tio.recv_peer(peer_blind_d);
     peer_blind_d &= mask;
 
     // Compute our share of f ? x : y = (f * (x ^ y))^x
@@ -186,7 +190,7 @@ void mpc_select(MPCTIO &tio, yield_t &yield,
 // 1 byte sent in 1 message
 // consumes 1/64 AndTriple
 void mpc_select(MPCTIO &tio, yield_t &yield,
-    RegBS &z, RegBS f, RegBS x, RegBS y)
+    RegBS &z, RegBS &f, RegBS &x, RegBS &y)
 {
     // The desired result is z = x ^ (f & (y^x))
     mpc_and(tio, yield, z, f, y^x);
@@ -211,7 +215,9 @@ void mpc_oswap(MPCTIO &tio, yield_t &yield,
     // Let s = f*(y-x).  Then the desired result is
     // x <- x + s, y <- y - s.
     RegAS s;
-    mpc_flagmult(tio, yield, s, f, y-x, nbits);
+    RegAS tmp;
+    tmp = y -x;
+    mpc_flagmult(tio, yield, s, f, tmp, nbits);
     x.ashare = (x.ashare + s.ashare) & mask;
     y.ashare = (y.ashare - s.ashare) & mask;
 }
@@ -225,7 +231,7 @@ void mpc_oswap(MPCTIO &tio, yield_t &yield,
 // nbits-1 words sent in 1 message
 // consumes nbits-1 HalfTriples
 void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
-    RegAS &as_x, RegXS xs_x,
+    RegAS &as_x, RegXS &xs_x,
     nbits_t nbits, bool tally)
 {
     const value_t mask = MASKBITS(nbits);
@@ -249,15 +255,14 @@ void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
     // once, then each will read their results.
 
     RegAS as_bitand[nbits-1];
-    std::vector<coro_t> coroutines;
     for (nbits_t i=0; i<nbits-1; ++i) {
-        coroutines.emplace_back(
-            [&tio, &as_bitand, &xs_x, i, nbits, tally](yield_t &yield) {
-                mpc_valuemul(tio, yield, as_bitand[i],
+        // The following used to be multithreaded
+        yield();
+        mpc_valuemul(tio, yield, as_bitand[i],
                     (xs_x.xshare>>i)&1, nbits, tally);
-            });
+        yield();
     }
-    run_coroutines(yield, coroutines);
+    // run_coroutines(yield, coroutines);
     value_t as_C = 0;
     for (nbits_t i=0; i<nbits-1; ++i) {
         mpz_t tmp;
@@ -272,7 +277,7 @@ void mpc_xs_to_as(MPCTIO &tio, yield_t &yield,
 //
 // Cost: 1 word sent in 1 message
 value_t mpc_reconstruct(MPCTIO &tio, yield_t &yield,
-    RegXS x, nbits_t nbits)
+    RegXS &x, nbits_t nbits)
 {
     RegXS res;
     size_t nbytes = BITBYTES(nbits);
@@ -292,7 +297,7 @@ value_t mpc_reconstruct(MPCTIO &tio, yield_t &yield,
 //
 // Cost: 1 word sent in 1 message
 value_t mpc_reconstruct(MPCTIO &tio, yield_t &yield,
-    RegAS x, nbits_t nbits)
+    RegAS &x, nbits_t nbits)
 {
     RegAS res;
     size_t nbytes = BITBYTES(nbits);
