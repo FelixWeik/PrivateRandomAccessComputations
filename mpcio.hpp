@@ -435,7 +435,7 @@ public:
     void queue_p0(const mpz_class &data);
     void queue_p0(const void *data, size_t len);
     void queue_p1(const std::tuple<mpz_class, mpz_class> &data);
-    void queue_p1(mpz_class &data);
+    void queue_p1(const mpz_class &data);
     void queue_p1(const void *data, size_t len);
 
     // Receive data from p0 or p1

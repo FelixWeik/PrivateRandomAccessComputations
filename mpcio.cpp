@@ -60,8 +60,10 @@ size_t MPCSingleIO::queue(const void *data, size_t len, lamport_t lamport)
     // If we already have some full packets worth of data, may as
     // well send it.
     if (dataqueue.size() > 28800) {
-        send(true);
+        std::cout << "Kuckuck" << std::endl;
     }
+    send(true);
+
 
     return newmsg;
 }
@@ -535,7 +537,6 @@ void MPCTIO::queue_peer(const void *data, size_t len)
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Wenn das übergebene Datenobjekt ein mpz_class ist, stelle sicher, dass eine Kopie erstellt wird:
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), data, len);
 
@@ -552,10 +553,9 @@ void MPCTIO::queue_peer(const HalfTriple& data) {
 
         MPCPeerIO& mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Sende die Länge der Nachricht
-        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcpio.msgs_sent[thread_num] += msg;
 
-        // Sende die Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -574,10 +574,9 @@ void MPCTIO::queue_peer(const mpz_class &data) {
 
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Sende zuerst die Länge der Nachricht
-        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcpio.msgs_sent[thread_num] += msg;
 
-        // Sende die eigentlichen Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -595,10 +594,9 @@ void MPCTIO::queue_server(const mpz_class &data) {
 
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Sende zuerst die Länge der Nachricht
-        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcpio.msgs_sent[thread_num] += msg;
 
-        // Sende die eigentlichen Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -653,7 +651,6 @@ size_t MPCTIO::recv_peer(mpz_class &data) {
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Zuerst die Größe der Nachricht empfangen
         size_t len = 0;
         size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
 
@@ -674,10 +671,10 @@ size_t MPCTIO::recv_server(std::tuple<mpz_class, mpz_class> &data) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
         size_t len = 0;
-        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+        size_t res = mpcpio.serverios[thread_num].recv(&len, sizeof(len), thread_lamport);
 
         std::vector<char> buffer(len);
-        res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
+        res = mpcpio.serverios[thread_num].recv(buffer.data(), len, thread_lamport);
 
         if (res > 0) {
             data = deserialize_halftriple(buffer.data(), len);
@@ -693,9 +690,8 @@ size_t MPCTIO::recv_server(mpz_class &data) {
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        // Zuerst die Größe der Nachricht empfangen
         size_t len = 0;
-        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+        size_t res = mpcpio.serverios[thread_num].recv(&len, sizeof(len), thread_lamport);
 
         std::vector<char> buffer(len);
         res = mpcpio.serverios[thread_num].recv(buffer.data(), len, thread_lamport);
@@ -722,16 +718,15 @@ size_t MPCTIO::recv_server(void *data, size_t len)
 
 // Queue up data to p0 or p1
 void MPCTIO::queue_p0(const HalfTriple& data) {
-    if (mpcio.player < 2) {
+    if (mpcio.player == 2) {
         size_t len = 0;
         char* to_send = serialize_halftriple(data, len);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        // Sende die Länge der Nachricht
-        mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
 
-        // Sende die Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -750,7 +745,8 @@ void MPCTIO::queue_p0(const mpz_class &data) {
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
 
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
@@ -773,16 +769,15 @@ void MPCTIO::queue_p0(const void *data, size_t len)
 }
 
 void MPCTIO::queue_p1(const HalfTriple& data) {
-    if (mpcio.player < 2) {
+    if (mpcio.player == 2) {
         size_t len = 0;
         char* to_send = serialize_halftriple(data, len);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        // Sende die Länge der Nachricht
-        mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
 
-        // Sende die Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -794,14 +789,15 @@ void MPCTIO::queue_p1(const HalfTriple& data) {
     }
 }
 
-void MPCTIO::queue_p1(mpz_class &data) {
+void MPCTIO::queue_p1(const mpz_class &data) {
     if (mpcio.player == 2) {
         size_t len = 0;
         auto to_send = serialize_to_binary(data, len);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
 
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
@@ -826,7 +822,7 @@ void MPCTIO::queue_p1(const void *data, size_t len)
 // Receive data from p0 or p1
 
 size_t MPCTIO::recv_p0(std::tuple<mpz_class, mpz_class> &data) {
-    if (mpcio.player < 2) {
+    if (mpcio.player == 2) {
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
         size_t len = 0;
@@ -849,7 +845,6 @@ size_t MPCTIO::recv_p0(mpz_class &data) {
     if (mpcio.player == 2) {
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        // Zuerst die Größe der Nachricht empfangen
         size_t len = 0;
         size_t res = mpcsrvio.p0ios[thread_num].recv(&len, sizeof(len), thread_lamport);
 
@@ -876,7 +871,7 @@ size_t MPCTIO::recv_p0(void *data, size_t len)
 }
 
 size_t MPCTIO::recv_p1(std::tuple<mpz_class, mpz_class> &data) {
-    if (mpcio.player < 2) {
+    if (mpcio.player == 2) {
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
         size_t len = 0;
@@ -990,14 +985,29 @@ MultTriple MPCTIO::multtriple(yield_t &yield)
 // the stats from the preprocessing operation that invoked it
 HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
 {
+    yield();
     HalfTriple val;
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
         if (mpcpio.mode != MODE_ONLINE) {
-            HalfTriple X0;
-            recv_server(X0);  //TODO hier gehts weiter lieber Felix
+            value_t X0, Z0, Y1, Z1;
+            // arc4random_buf(&X0, sizeof(X0));
+            random_mpz(X0);
+            // arc4random_buf(&Z0, sizeof(Z0));
+            random_mpz(Z0);
+            // arc4random_buf(&Y1, sizeof(Y1));
+            random_mpz(Y1);
+            Z1 = X0 * Y1 - Z0;
 
-            yield();
+            HalfTriple H0, H1;
+            H0 = std::make_tuple(X0, Z0);
+            H1 = std::make_tuple(Y1, Z1);
+            val = player() == 1 ? H0 : H1;  // Zeit für Betrug
+            //
+            // HalfTriple X0;
+            // recv_server(X0);  //TODO hier gehts weiter lieber Felix
+            //
+            // yield();
 
             if (tally) {
                 mpcpio.halftriples[thread_num].inc();
@@ -1020,9 +1030,9 @@ HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
         HalfTriple H0, H1;
         H0 = std::make_tuple(X0, Z0);
         H1 = std::make_tuple(Y1, Z1);
-        queue_p0(H0);
-        queue_p1(H1);
-        yield();
+        // queue_p0(H0);
+        // queue_p1(H1);
+        // yield();
 
         // queue_p0(&H0, sizeof(H0));
         // queue_p1(&H1, sizeof(H1));
@@ -1088,13 +1098,13 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
         if (mpcpio.mode != MODE_ONLINE) {
             yield();
             for (size_t i=0; i<num; ++i) {
-                uint8_t Xbyte;
-                recv_server(&Xbyte, sizeof(Xbyte));
-                bit_t X = Xbyte & 1;
+                bit_t X;
+                recv_server(&X, sizeof(X));
+                // bit_t X = Xbyte & 1;
 
                 DPFnode z, y;
-                recv_server(&y, sizeof(y));
-                recv_server(&z, sizeof(z));
+                recv_server(y);
+                recv_server(z);
 
                 // Direktes Emplace ohne temporäres Objekt
                 queued_nodeselecttriples.emplace_back(X, std::move(y), std::move(z));
@@ -1114,9 +1124,9 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             // X0 = arc4random() & 1;
             random_mpz(tmp0, 2*VALUE_BITS);
             mpz_and(tmpAnd0.get_mpz_t(), tmp0.get_mpz_t(), DPFnode(1).get_mpz_t());
-            X0 = (mpz_cmp_ui(tmpAnd0.get_mpz_t(), 0) != 0) ? 1 : 0;
+            X0 = (mpz_cmp_ui(tmpAnd0.get_mpz_t(), 0) != 0) ? true : false;
 
-            // arc4random_buf(&Y0, sizeof(Y0));  //TODO Segfault erwischt!
+            // arc4random_buf(&Y0, sizeof(Y0));
             random_mpz(Y0, 2*VALUE_BITS);
 
             // arc4random_buf(&Z0, sizeof(Z0));
@@ -1135,27 +1145,19 @@ void MPCTIO::request_nodeselecttriples(yield_t &yield, size_t num)
             // mpz_init_set(X1ext.get_mpz_t(), 0);
             // Sign-extend X0 and X1 (so that 0 -> 0000...0 and
             // 1 -> 1111...1)
-            DPFnode X0ext = X0 == 0 ? 1 : 0;
-            DPFnode X1ext = X1 == 0 ? 1 : 0;
+            DPFnode X0ext;
+            X0ext = X0 == 0 ? 1 : 0;
+            DPFnode X1ext;
+            X1ext = X1 == 0 ? 1 : 0;
+            Z1 = ((X0ext ^ Y1) ^ (X1ext ^ Y0)) ^ Z0;
 
-            mpz_t A1, A2, XOR1;
-
-            mpz_init(A1);
-            mpz_init(A2);
-            mpz_init(XOR1);
-
-            // Z1 = ((X0ext & Y1) ^ (X1ext & Y0)) ^ Z0;  //Hier war ein Segfault => umgeschrieben in folgende Zeilen
-            mpz_and(A1, X0ext.get_mpz_t(), Y1.get_mpz_t());
-            mpz_and(A2, X1ext.get_mpz_t(), Y0.get_mpz_t());
-            mpz_xor(XOR1, A1, A2);
-            mpz_xor(Z1.get_mpz_t(), XOR1, Z0.get_mpz_t());
 
             queue_p0(&X0, sizeof(X0));
-            queue_p0(&Y0, sizeof(Y0));
-            queue_p0(&Z0, sizeof(Z0));
+            queue_p0(Y0);
+            queue_p0(Z0);
             queue_p1(&X1, sizeof(X1));
-            queue_p1(&Y1, sizeof(Y1));
-            queue_p1(&Z1, sizeof(Z1));
+            queue_p1(Y1);
+            queue_p1(Z1);
         }
         yield();
         remaining_nodesselecttriples += num;
