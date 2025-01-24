@@ -368,8 +368,6 @@ struct RDPFPair {
 
     RDPF<WIDTH> dpf[2];
 
-    RDPFPair() = default;
-
     // The depth
     inline nbits_t depth() const { return dpf[0].depth(); }
 

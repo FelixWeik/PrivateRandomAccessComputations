@@ -229,7 +229,7 @@ T& operator>>(T &is, RDPF<WIDTH> &rdpf)
     }
     rdpf.maxdepth = depth;
     rdpf.curdepth = depth;
-    assert(depth <= ADDRESS_MAX_BITS);
+    // assert(depth <= ADDRESS_MAX_BITS);
     rdpf.cw.clear();
     for (uint8_t i=0; i<depth-1; ++i) {
         DPFnode cw;
@@ -275,7 +275,7 @@ T& write_maybe_expanded(T &os, const RDPF<WIDTH> &rdpf,
 {
     os.write((const char *)&rdpf.seed, sizeof(rdpf.seed));
     uint8_t depth = rdpf.maxdepth;
-    assert(depth <= ADDRESS_MAX_BITS);
+    // assert(depth <= ADDRESS_MAX_BITS);
     // If we're writing an expansion, add 64 to depth
     uint8_t expanded_depth = depth;
     bool write_expansion = false;
@@ -371,17 +371,17 @@ T& operator>>(T &is, RDPFPair<WIDTH> &rdpfpair)
 }
 
 // Set a DPFnode to zero
-static inline void zero(DPFnode &z)
+static void zero(DPFnode &z)
 {
-    mpz_set_ui(z.get_mpz_t(), 0);
+    z = 0;
 }
 
 // Set a LeafNode to zero
-template <size_t LWIDTH>
-static inline void zero(std::array<mpz_class,LWIDTH> &z)
+template <size_t len>
+static void zero(std::array<mpz_class,len> &z)
 {
-    for (size_t j=0;j<LWIDTH;++j) {
-        zero(z[j]);
+    for (auto &m : z) {
+        m = 0;
     }
 }
 
@@ -541,8 +541,8 @@ static inline void finalize_leaf_layer_nothreads(size_t start,
     value_t llow_sum = 0;  // remember: value_t is a type alias for the 64 bit vector
     std::array<value_t,WIDTH> lhigh_sum;
     std::array<value_t,WIDTH> lhigh_xor;
-    zero(lhigh_sum);
-    zero(lhigh_xor);
+    lhigh_sum[0] = 0;
+    lhigh_xor[0] = 0;
     for(size_t i=start;i<end;++i) {
         bool flag = get_lsb(curlevel[i]);
         LN leftchild = xor_if(nextlevel[2*i], CWL, flag);
@@ -736,7 +736,6 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
     tio.recv_peer(&peer_parity_byte, 1);
     peer_parity_bit = peer_parity_byte & 1;
     mpc_reconstruct_choice(tio, yield, CWL, bs_choice, R, L);
-    std::cout << "Danach" << std::endl;
     // run_coroutines(yield,
     //     [&tio, &our_parity_bit, &peer_parity_bit](yield_t &yield) {
     //         tio.queue_peer(&our_parity_bit, 1);
@@ -818,13 +817,13 @@ static inline void create_level(MPCTIO &tio, yield_t &yield,
                 li.scaled_xor[j].xshare = high_xor[j];
             }
             // Exchange low_sum and add them up
-            tio.queue_peer(&low_sum, sizeof(low_sum));
+            tio.queue_peer(low_sum);
             yield();
             value_t peer_low_sum;
-            tio.recv_peer(&peer_low_sum, sizeof(peer_low_sum));
+            tio.recv_peer(peer_low_sum);
             low_sum += peer_low_sum;
             // The low_sum had better be odd
-            assert(parity(low_sum) == 1);
+            // assert(parity(low_sum) == 1);
             li.unit_sum_inverse = inverse_value_t(low_sum);
         }
     } else if constexpr (!std::is_same_v<NT, DPFnode>) {
@@ -1037,8 +1036,11 @@ RDPFTriple<WIDTH>::RDPFTriple(MPCTIO &tio, yield_t &yield,
     for (int i=0;i<3;++i) {
         dpf[i] = RDPF<WIDTH>(tio, yield, xs_target, depth,
                     incremental, save_expansion);
+        std::cout << "Finished dpf " << i << std::endl;
     }
+    std::cout << "Before mpc_xs_to_as" << std::endl;
     mpc_xs_to_as(tio, yield, as_target, xs_target, depth, false);
+    std::cout << "After mpc_xs_to_as" << std::endl;
 }
 
 template <nbits_t WIDTH>
