@@ -389,7 +389,6 @@ void mpc_reconstruct_choice(MPCTIO &tio, yield_t &yield,
     tio.recv_peer(peer_zshare);
     // peer_zshare = zshare_tmp;
 
-    std::cout << "Davor" << std::endl;
     z = zshare ^ peer_zshare;
     // mpz_xor(z.get_mpz_t(), zshare.get_mpz_t(), peer_zshare.get_mpz_t());
 }
