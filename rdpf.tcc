@@ -213,7 +213,7 @@ T& operator>>(T &is, RDPF<WIDTH> &rdpf)
 {
     is.read((char *)&rdpf.seed, sizeof(rdpf.seed));
     rdpf.whichhalf = get_lsb(rdpf.seed);
-    uint8_t depth;
+    nbits_t depth;
     // Add 64 to depth to indicate an expanded RDPF, and add 128 to
     // indicate an incremental RDPF
     is.read((char *)&depth, sizeof(depth));
@@ -231,7 +231,7 @@ T& operator>>(T &is, RDPF<WIDTH> &rdpf)
     rdpf.curdepth = depth;
     // assert(depth <= ADDRESS_MAX_BITS);
     rdpf.cw.clear();
-    for (uint8_t i=0; i<depth-1; ++i) {
+    for (nbits_t i=0; i<depth-1; ++i) {
         DPFnode cw;
         is.read((char *)&cw, sizeof(cw));
         rdpf.cw.push_back(cw);
@@ -266,9 +266,91 @@ T& operator>>(T &is, RDPF<WIDTH> &rdpf)
     return is;
 }
 
+template <typename MPCSingleIOStream, size_t WIDTH>
+MPCSingleIOStream& operator>>(MPCSingleIOStream &is, RDPF<WIDTH> &rdpf) {
+    is.read(rdpf.seed);
+    rdpf.whichhalf = get_lsb(rdpf.seed);
+    mpz_class depth_mpz;
+    nbits_t depth;
+    // Add 64 to depth to indicate an expanded RDPF, and add 128 to
+    // indicate an incremental RDPF
+    is.read(depth_mpz);
+    depth = mpz_get_ui(depth_mpz.get_mpz_t());
+    bool read_expanded = false;
+    bool read_incremental = false;
+    if (depth > 128) {
+        read_incremental = true;
+        depth -= 128;
+    }
+    if (depth > 64) {
+        read_expanded = true;
+        depth -= 64;
+    }
+    rdpf.maxdepth = depth;
+    rdpf.curdepth = depth;
+    // assert(depth <= ADDRESS_MAX_BITS);
+    rdpf.cw.clear();
+    for (nbits_t i=0; i<depth-1; ++i) {
+        DPFnode cw;
+        is.read(cw);
+        rdpf.cw.push_back(cw);
+    }
+    nbits_t num_leaflevels = read_incremental ? depth : 1;
+    rdpf.li.resize(num_leaflevels);
+    value_t cfbits = 0;
+    is.read(cfbits);
+    rdpf.cfbits = cfbits;
+    value_t leaf_cfbits = 0;
+    is.read(leaf_cfbits);
+    rdpf.leaf_cfbits = leaf_cfbits;
+    for (nbits_t i=0; i<num_leaflevels; ++i) {
+        is.read(rdpf.li[i].leaf_cw);
+        is.read(rdpf.li[i].unit_sum_inverse);
+        is.read(rdpf.li[i].scaled_sum);
+        is.read(rdpf.li[i].scaled_xor);
+    }
+
+    return is;
+}
+
 // Write the DPF to the output stream.  If expanded=true, then include
 // the expansion _if_ the DPF is itself already expanded.  You can use
 // this to write DPFs to files.
+template <nbits_t WIDTH>
+MPCSingleIOStream& write_maybe_expanded(MPCSingleIOStream &os, const RDPF<WIDTH> &rdpf,
+    bool expanded = true)
+{
+    os.write(rdpf.seed);
+    mpz_class depth = rdpf.maxdepth;
+    // assert(depth <= ADDRESS_MAX_BITS);
+    // If we're writing an expansion, add 64 to depth
+    // uint8_t expanded_depth = depth;
+    // bool write_expansion = false;
+    // if (expanded && rdpf.li[0].expansion.size() == (size_t(1)<<depth)) {
+    //     write_expansion = true;
+    //     expanded_depth += 64;
+    // }
+    // // If we're writing an incremental RDPF, add 128 to depth
+    // if (rdpf.li.size() > 1) {
+    //     expanded_depth += 128;
+    // }
+    os.write(depth);
+    for (uint8_t i=0; i<depth-1; ++i) {
+        os.write(rdpf.cw[i]);
+    }
+    nbits_t num_leaflevels = rdpf.li.size();
+    os.write(rdpf.cfbits);
+    os.write(rdpf.leaf_cfbits);
+    for (nbits_t i=0; i<num_leaflevels; ++i) {
+        os.write(rdpf.li[i].leaf_cw);
+        os.write(rdpf.li[i].unit_sum_inverse);
+        os.write(rdpf.li[i].scaled_sum);
+        os.write(rdpf.li[i].scaled_xor);
+    }
+
+    return os;
+}
+
 template <typename T, nbits_t WIDTH>
 T& write_maybe_expanded(T &os, const RDPF<WIDTH> &rdpf,
     bool expanded = true)
@@ -1038,9 +1120,8 @@ RDPFTriple<WIDTH>::RDPFTriple(MPCTIO &tio, yield_t &yield,
                     incremental, save_expansion);
         std::cout << "Finished dpf " << i << std::endl;
     }
-    std::cout << "Before mpc_xs_to_as" << std::endl;
     mpc_xs_to_as(tio, yield, as_target, xs_target, depth, false);
-    std::cout << "After mpc_xs_to_as" << std::endl;
+    std::cout << "Finished mpc_xs_to_as" << std::endl;
 }
 
 template <nbits_t WIDTH>

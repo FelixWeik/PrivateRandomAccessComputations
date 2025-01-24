@@ -107,8 +107,8 @@ RDPFPair<WIDTH> MPCTIO::rdpfpair(yield_t &yield, nbits_t depth,
     } else {
         RDPFTriple<WIDTH> trip(*this, yield, depth, false, false);
         yield();
-        iostream_p0() >> val.dpf[0];
-        iostream_p1() >> val.dpf[1];
+        operator>> <MPCSingleIOStream, WIDTH>(p0_iostream.value(), val.dpf[0]);
+        operator>> <MPCSingleIOStream, WIDTH>(p1_iostream.value(), val.dpf[1]);
         if (incremental) {
             std::get<WIDTH-1>(mpcsrvio.irdpfpairs)
                 [thread_num][depth-1].inc();
