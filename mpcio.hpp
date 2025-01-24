@@ -408,6 +408,7 @@ public:
 
     // Queue up data to the peer or to the server
 
+    void queue_peer(const std::tuple<mpz_class, mpz_class> &triple);
     void queue_peer(const mpz_class &data);
     void queue_peer(const void *data, size_t len);
     void queue_server(const mpz_class &data);
@@ -415,8 +416,10 @@ public:
 
     // Receive data from the peer or to the server
 
+    size_t recv_peer(std::tuple<mpz_class, mpz_class> &triple);
     size_t recv_peer(mpz_class &data);
     size_t recv_peer(void *data, size_t len);
+    size_t recv_server(std::tuple<mpz_class, mpz_class> &triple);
     size_t recv_server(mpz_class &data);
     size_t recv_server(void *data, size_t len);
 
@@ -428,15 +431,19 @@ public:
 
     // Queue up data to p0 or p1
 
+    void queue_p0(const std::tuple<mpz_class, mpz_class> &data);
     void queue_p0(const mpz_class &data);
     void queue_p0(const void *data, size_t len);
+    void queue_p1(const std::tuple<mpz_class, mpz_class> &data);
     void queue_p1(mpz_class &data);
     void queue_p1(const void *data, size_t len);
 
     // Receive data from p0 or p1
 
+    size_t recv_p0(std::tuple<mpz_class, mpz_class> &data);
     size_t recv_p0(mpz_class &data);
     size_t recv_p0(void *data, size_t len);
+    size_t recv_p1(std::tuple<mpz_class, mpz_class> &data);
     size_t recv_p1(mpz_class &data);
     size_t recv_p1(void *data, size_t len);
 

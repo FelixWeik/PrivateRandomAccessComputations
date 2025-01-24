@@ -393,4 +393,48 @@ inline char* serialize_to_binary(const mpz_class& value, size_t& len) {
     return serialized;
 }
 
+inline char* serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len) {
+    const auto& [first, second] = halftriple;
+
+    // Serialisiere beide Werte
+    size_t len_first = 0, len_second = 0;
+    char* serialized_first = serialize_to_binary(first, len_first);
+    char* serialized_second = serialize_to_binary(second, len_second);
+
+    // Gesamtlänge berechnen und Speicher reservieren
+    len = sizeof(size_t) * 2 + len_first + len_second;
+    char* serialized = new char[len];
+
+    // Schreibe Länge und Daten von `first`
+    std::memcpy(serialized, &len_first, sizeof(size_t));
+    std::memcpy(serialized + sizeof(size_t), serialized_first, len_first);
+
+    // Schreibe Länge und Daten von `second`
+    std::memcpy(serialized + sizeof(size_t) + len_first, &len_second, sizeof(size_t));
+    std::memcpy(serialized + sizeof(size_t) * 2 + len_first, serialized_second, len_second);
+
+    // Speicher für temporäre Serialisierungen freigeben
+    delete[] serialized_first;
+    delete[] serialized_second;
+
+    return serialized;
+}
+
+inline std::tuple<mpz_class, mpz_class> deserialize_halftriple(const char* serialized, size_t len) {
+    // Längen der beiden Werte extrahieren
+    size_t len_first = 0, len_second = 0;
+    std::memcpy(&len_first, serialized, sizeof(size_t));
+    std::memcpy(&len_second, serialized + sizeof(size_t) + len_first, sizeof(size_t));
+
+    // Daten für `first` und `second` extrahieren
+    const char* data_first = serialized + sizeof(size_t);
+    const char* data_second = serialized + sizeof(size_t) * 2 + len_first;
+
+    mpz_class first = deserialize_from_binary(data_first, len_first);
+    mpz_class second = deserialize_from_binary(data_second, len_second);
+
+    return std::make_tuple(first, second);
+}
+
+
 #endif

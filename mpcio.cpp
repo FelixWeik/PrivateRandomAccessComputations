@@ -545,6 +545,28 @@ void MPCTIO::queue_peer(const void *data, size_t len)
     }
 }
 
+void MPCTIO::queue_peer(const HalfTriple& data) {
+    if (mpcio.player < 2) {
+        size_t len = 0;
+        char* to_send = serialize_halftriple(data, len);
+
+        MPCPeerIO& mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        // Sende die Länge der Nachricht
+        mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcpio.peerios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcpio.msgs_sent[thread_num] += newmsg;
+        mpcpio.msg_bytes_sent[thread_num] += len;
+
+        delete[] to_send;
+    }
+}
+
 void MPCTIO::queue_peer(const mpz_class &data) {
     if (mpcio.player < 2) {
         size_t len = 0;
@@ -600,6 +622,25 @@ void MPCTIO::queue_server(const void *data, size_t len)
 
 // Receive data from the peer or to the server
 
+size_t MPCTIO::recv_peer(HalfTriple& data) {
+    if (mpcio.player < 2) {
+        MPCPeerIO& mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        size_t len = 0;
+        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_halftriple(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
 size_t MPCTIO::recv_peer(void *data, size_t len = VALUE_BITS) {
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
@@ -627,6 +668,26 @@ size_t MPCTIO::recv_peer(mpz_class &data) {
 
     return 0;
 }
+
+size_t MPCTIO::recv_server(std::tuple<mpz_class, mpz_class> &data) {
+    if (mpcio.player < 2) {
+        MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
+
+        size_t len = 0;
+        size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_halftriple(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
 
 size_t MPCTIO::recv_server(mpz_class &data) {
     if (mpcio.player < 2) {
@@ -660,6 +721,27 @@ size_t MPCTIO::recv_server(void *data, size_t len)
 }
 
 // Queue up data to p0 or p1
+void MPCTIO::queue_p0(const HalfTriple& data) {
+    if (mpcio.player < 2) {
+        size_t len = 0;
+        char* to_send = serialize_halftriple(data, len);
+
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Sende die Länge der Nachricht
+        mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len;
+
+        delete[] to_send;
+    }
+}
 
 void MPCTIO::queue_p0(const mpz_class &data) {
     if (mpcio.player == 2) {
@@ -668,10 +750,8 @@ void MPCTIO::queue_p0(const mpz_class &data) {
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        // Sende zuerst die Länge der Nachricht
         mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
 
-        // Sende die eigentlichen Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -692,6 +772,28 @@ void MPCTIO::queue_p0(const void *data, size_t len)
     }
 }
 
+void MPCTIO::queue_p1(const HalfTriple& data) {
+    if (mpcio.player < 2) {
+        size_t len = 0;
+        char* to_send = serialize_halftriple(data, len);
+
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        // Sende die Länge der Nachricht
+        mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+
+        // Sende die Daten
+        std::vector<char> data_copy(len);
+        std::memcpy(data_copy.data(), to_send, len);
+
+        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len;
+
+        delete[] to_send;
+    }
+}
+
 void MPCTIO::queue_p1(mpz_class &data) {
     if (mpcio.player == 2) {
         size_t len = 0;
@@ -699,10 +801,8 @@ void MPCTIO::queue_p1(mpz_class &data) {
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        // Sende zuerst die Länge der Nachricht
         mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
 
-        // Sende die eigentlichen Daten
         std::vector<char> data_copy(len);
         std::memcpy(data_copy.data(), to_send, len);
 
@@ -724,6 +824,26 @@ void MPCTIO::queue_p1(const void *data, size_t len)
 }
 
 // Receive data from p0 or p1
+
+size_t MPCTIO::recv_p0(std::tuple<mpz_class, mpz_class> &data) {
+    if (mpcio.player < 2) {
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        size_t len = 0;
+        size_t res = mpcsrvio.p0ios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcsrvio.p0ios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_halftriple(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
 
 size_t MPCTIO::recv_p0(mpz_class &data) {
     if (mpcio.player == 2) {
@@ -754,6 +874,26 @@ size_t MPCTIO::recv_p0(void *data, size_t len)
     }
     return 0;
 }
+
+size_t MPCTIO::recv_p1(std::tuple<mpz_class, mpz_class> &data) {
+    if (mpcio.player < 2) {
+        MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
+
+        size_t len = 0;
+        size_t res = mpcsrvio.p1ios[thread_num].recv(&len, sizeof(len), thread_lamport);
+
+        std::vector<char> buffer(len);
+        res = mpcsrvio.p1ios[thread_num].recv(buffer.data(), len, thread_lamport);
+
+        if (res > 0) {
+            data = deserialize_halftriple(buffer.data(), len);
+        }
+        return res;
+    }
+
+    return 0;
+}
+
 
 size_t MPCTIO::recv_p1(mpz_class &data) {
     if (mpcio.player == 2) {
@@ -854,8 +994,11 @@ HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
     if (mpcio.player < 2) {
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
         if (mpcpio.mode != MODE_ONLINE) {
+            HalfTriple X0;
+            recv_server(X0);  //TODO hier gehts weiter lieber Felix
+
             yield();
-            recv_server(&val, sizeof(val));
+
             if (tally) {
                 mpcpio.halftriples[thread_num].inc();
             }
@@ -873,12 +1016,22 @@ HalfTriple MPCTIO::halftriple(yield_t &yield, bool tally)
         // arc4random_buf(&Y1, sizeof(Y1));
         random_mpz(Y1);
         Z1 = X0 * Y1 - Z0;
+
         HalfTriple H0, H1;
         H0 = std::make_tuple(X0, Z0);
         H1 = std::make_tuple(Y1, Z1);
-        queue_p0(&H0, sizeof(H0));
-        queue_p1(&H1, sizeof(H1));
+        queue_p0(H0);
+        queue_p1(H1);
         yield();
+
+        // queue_p0(&H0, sizeof(H0));
+        // queue_p1(&H1, sizeof(H1));
+
+        value_t val0, val1;
+        val0 = 0;
+        val1 = 0;
+        val = std::make_tuple(val0, val1);
+
     }
     return val;
 }
@@ -911,10 +1064,18 @@ MultTriple MPCTIO::andtriple(yield_t &yield)
         random_mpz(Y1);
         Z1 = (X0 & Y1) ^ (X1 & Y0) ^ Z0;
         AndTriple T0, T1;
-        T0 = std::make_tuple(X0, Y0, Z0);
-        T1 = std::make_tuple(X1, Y1, Z1);
-        queue_p0(&T0, sizeof(T0));
-        queue_p1(&T1, sizeof(T1));
+        // T0 = std::make_tuple(X0, Y0, Z0);
+        // T1 = std::make_tuple(X1, Y1, Z1);
+        queue_p0(X0);
+        queue_p0(Y0);
+        queue_p0(Z0);
+
+        queue_p0(X1);
+        queue_p0(Y1);
+        queue_p0(Z1);
+
+        // queue_p0(T0);
+        // queue_p1(&T1, sizeof(T1));
         yield();
     }
     return val;
@@ -1011,7 +1172,8 @@ SelectTriple<DPFnode> MPCTIO::nodeselecttriple(yield_t &yield)
     if (mpcio.player < 2) {
         auto &mpcpio = static_cast<MPCPeerIO&>(mpcio);
         if (mpcpio.mode != MODE_ONLINE) {
-            val = queued_nodeselecttriples.front();
+
+            // val = queued_nodeselecttriples.front();
             std::cout << "size of dequeue: " << queued_nodeselecttriples.size() << std::endl;
             std::cout << "size of dequeue 2: " << remaining_nodesselecttriples<< std::endl;
             // queued_nodeselecttriples.pop_front();
