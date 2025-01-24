@@ -110,6 +110,31 @@ void MPCSingleIO::send(bool implicit_send)
     messagequeuelock.unlock();
 }
 
+mpz_class MPCSingleIO::recv(lamport_t& lamport) {
+    // Header lesen (Datenlänge + Lamport-Zeitstempel)
+    char hdr[sizeof(uint32_t) + sizeof(lamport_t)];
+    boost::asio::read(sock, boost::asio::buffer(hdr, sizeof(hdr)));
+
+    // Header-Informationen extrahieren
+    uint32_t datalen;
+    lamport_t recv_lamport;
+    std::memcpy(&datalen, hdr, sizeof(datalen));
+    std::memcpy(&recv_lamport, hdr + sizeof(datalen), sizeof(lamport_t));
+
+    lamport_t new_lamport = recv_lamport + 1;
+    if (lamport < new_lamport) {
+        lamport = new_lamport;
+    }
+
+    // Daten empfangen
+    std::vector<char> buffer(datalen);
+    boost::asio::read(sock, boost::asio::buffer(buffer.data(), datalen));
+
+    // Deserialisieren
+    return deserialize_from_binary(buffer.data(), datalen);
+}
+
+
 size_t MPCSingleIO::recv(void *data, size_t len, lamport_t &lamport)
 {
 #ifdef VERBOSE_COMMS

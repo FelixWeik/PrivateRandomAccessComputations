@@ -161,6 +161,7 @@ public:
     void send(bool implicit_send = false);
 
     size_t recv(void *data, size_t len, lamport_t &lamport);
+    mpz_class recv(lamport_t& lamport);
 
 #ifdef RECORD_IOTRACE
     void dumptrace(std::ostream &os, const char *label = NULL);
@@ -317,8 +318,88 @@ public:
         return *this;
     }
 
+    MPCSingleIOStream& write(const mpz_class& value) {
+        size_t len;
+        char* serialized = serialize_to_binary(value, len);
+        if (len == 0) {
+            mpz_class tmp = -1;
+            serialized = serialize_to_binary(tmp, len);
+        }
+        size_t newmsg = sio.queue(serialized, len, lamport);
+
+        msgs_sent += newmsg;
+        msg_bytes_sent += len;
+
+        delete[] serialized;
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& write(const std::array<RegAS, WIDTH>& value) {
+        for (auto &x : value) {
+            write(x.ashare);
+        }
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& write(const std::array<RegXS, WIDTH>& value) {
+        for (auto &x : value) {
+            write(x.xshare);
+        }
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& write(const std::array<mpz_class, WIDTH> &leafnode) {
+        for (auto &leaf : leafnode) {
+            write(leaf);
+        }
+        return *this;
+    }
+
     MPCSingleIOStream& read(char *data, std::streamsize len) {
         sio.recv(data, len, lamport);
+        return *this;
+    }
+
+    MPCSingleIOStream& read(mpz_class& value) {
+        value = sio.recv(lamport);
+        if (value == -1) {
+            value = 0;
+        }
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& read(std::array<RegAS, WIDTH>& value) {
+        for (size_t i = 0; i < WIDTH; i++) {
+            mpz_class tmp;
+            read(tmp);
+            RegAS res(tmp);
+            value[i] = res;
+        }
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& read(std::array<RegXS, WIDTH>& value) {
+        for (size_t i = 0; i < WIDTH; i++) {
+            mpz_class tmp;
+            read(tmp);
+            RegXS res(tmp);
+            value[i] = res;
+        }
+        return *this;
+    }
+
+    template <size_t WIDTH>
+    MPCSingleIOStream& read(std::array<mpz_class, WIDTH> &leafnode) {
+        for (size_t i = 0; i < WIDTH; i++) {
+            mpz_class tmp;
+            read(tmp);
+            leafnode.at(i) = tmp;
+        }
         return *this;
     }
 };
