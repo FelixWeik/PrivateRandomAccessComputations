@@ -72,8 +72,9 @@ RDPFTriple<WIDTH> MPCTIO::rdpftriple(yield_t &yield, nbits_t depth,
     } else {
         val = RDPFTriple<WIDTH>(*this, yield, depth,
             incremental, keep_expansion);
-        iostream_server() <<
-            val.dpf[(mpcio.player == 0) ? 1 : 2];
+        operator << (iostream_server(), val.dpf[(mpcio.player == 0) ? 1 : 2]);
+        // iostream_server() <<
+        //     val.dpf[(mpcio.player == 0) ? 1 : 2];
         if (incremental) {
             std::get<WIDTH-1>(mpcpio.irdpftriples)
                 [thread_num][depth-1].inc();
