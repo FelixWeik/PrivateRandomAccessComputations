@@ -351,6 +351,79 @@ MPCSingleIOStream& write_maybe_expanded(MPCSingleIOStream &os, const RDPF<WIDTH>
     return os;
 }
 
+template <nbits_t WIDTH>
+std::ofstream& write_maybe_expanded(std::ofstream &os, const RDPF<WIDTH> &rdpf,
+    bool expanded = true)
+{
+    auto seed_size = mpz_sizeinbase(rdpf.seed.get_mpz_t(), 2);
+    auto seed = serialize_to_binary(rdpf.seed, seed_size);
+    os.write(seed, seed_size);
+
+    nbits_t depth = rdpf.maxdepth;  // not stored as mpz_class => no serialization needed
+    os.write((const char *)&depth, sizeof(depth));
+    // assert(depth <= ADDRESS_MAX_BITS);
+    // If we're writing an expansion, add 64 to depth
+    // uint8_t expanded_depth = depth;
+    // bool write_expansion = false;
+    // if (expanded && rdpf.li[0].expansion.size() == (size_t(1)<<depth)) {
+    //     write_expansion = true;
+    //     expanded_depth += 64;
+    // }
+    // If we're writing an incremental RDPF, add 128 to depth
+    // if (rdpf.li.size() > 1) {
+    //     expanded_depth += 128;
+    // }
+
+    for (uint8_t i=0; i<depth-1; ++i) {
+        size_t cw_len = mpz_sizeinbase(rdpf.cw[i].get_mpz_t(), 2);
+        auto cw = serialize_to_binary(rdpf.cw[i], cw_len);
+        os.write(cw, cw_len);
+    }
+    nbits_t num_leaflevels = 1;  // This research assumes WIDTH = 1 always
+    // if (write_expansion) {
+    //     for(nbits_t i=0; i<num_leaflevels; ++i) {
+    //         nbits_t level = depth-i;
+    //         os.write((const char *)rdpf.li[i].expansion.data(),
+    //             sizeof(rdpf.li[i].expansion[0])<<level);
+    //     }
+    // }
+    size_t cfbits_len = mpz_sizeinbase(rdpf.cfbits.get_mpz_t(), 2);
+    auto cfbits = serialize_to_binary(rdpf.cfbits, cfbits_len);
+    os.write(cfbits, cfbits_len);
+
+    size_t leaf_cfbits_len = mpz_sizeinbase(rdpf.leaf_cfbits.get_mpz_t(), 2);
+    auto leaf_cfbits = serialize_to_binary(rdpf.leaf_cfbits, leaf_cfbits_len);
+    os.write(leaf_cfbits, leaf_cfbits_len);
+
+    for (nbits_t i=0; i<num_leaflevels; ++i) {
+        for (const mpz_class &leaf : rdpf.li[i].leaf_cw) {
+            size_t leaf_cw_len = mpz_sizeinbase(leaf.get_mpz_t(), 2);
+            auto leaf_cw = serialize_to_binary(leaf, leaf_cw_len);
+            os.write(leaf_cw, leaf_cw_len);
+        }
+
+        size_t unit_sum_inverse_len = mpz_sizeinbase(rdpf.li[i].unit_sum_inverse.get_mpz_t(), 2);
+        auto unit_sum_inverse = serialize_to_binary(rdpf.li[i].unit_sum_inverse, unit_sum_inverse_len);
+        os.write(unit_sum_inverse, unit_sum_inverse_len);
+
+        for (const RegAS &scaled_sum : rdpf.li[i].scaled_sum) {
+            mpz_class elmt = scaled_sum.ashare;
+            size_t scaled_sum_len = mpz_sizeinbase(elmt.get_mpz_t(), 2);
+            auto to_write = serialize_to_binary(elmt, scaled_sum_len);
+            os.write(to_write, scaled_sum_len);
+        }
+
+        for (const RegXS &scaled_xor : rdpf.li[i].scaled_xor) {
+            mpz_class elmt = scaled_xor.xshare;
+            size_t scaled_xor_len = mpz_sizeinbase(elmt.get_mpz_t(), 2);
+            auto to_write = serialize_to_binary(elmt, scaled_xor_len);
+            os.write(to_write, scaled_xor_len);
+        }
+    }
+
+    return os;
+}
+
 template <typename T, nbits_t WIDTH>
 T& write_maybe_expanded(T &os, const RDPF<WIDTH> &rdpf,
     bool expanded = true)
@@ -410,26 +483,35 @@ T& operator<<(T &os, const RDPF<WIDTH> &rdpf)
 // We never write RDPFTriples over the network, so always write
 // the DPF expansions if they're available.
 template <typename T, nbits_t WIDTH>
-T& operator<<(T &os, const RDPFTriple<WIDTH> &rdpftrip)
+T& operator<<(T &os, const RDPFTriple<WIDTH> &rdpftrip)  // writes to file if T == std::ofstream
 {
-    write_maybe_expanded(os, rdpftrip.dpf[0], true);
-    write_maybe_expanded(os, rdpftrip.dpf[1], true);
-    write_maybe_expanded(os, rdpftrip.dpf[2], true);
+    write_maybe_expanded(os, rdpftrip.dpf[0], false);
+    write_maybe_expanded(os, rdpftrip.dpf[1], false);
+    write_maybe_expanded(os, rdpftrip.dpf[2], false);
     nbits_t depth = rdpftrip.dpf[0].depth();
-    os.write((const char *)&rdpftrip.as_target.ashare, BITBYTES(depth));
-    os.write((const char *)&rdpftrip.xs_target.xshare, BITBYTES(depth));
+
+    // os.write(rdpftrip.as_target.ashare);
+    size_t as_target_len = mpz_sizeinbase(rdpftrip.as_target.ashare.get_mpz_t(), 2);
+    auto as_target = serialize_to_binary(rdpftrip.as_target.ashare, as_target_len);
+    os.write(as_target, as_target_len);
+
+    // os.write(rdpftrip.xs_target.xshare);
+    size_t xs_target_len = mpz_sizeinbase(rdpftrip.xs_target.xshare.get_mpz_t(), 2);
+    auto xs_target = serialize_to_binary(rdpftrip.xs_target.xshare, xs_target_len);
+    os.write(xs_target, xs_target_len);
+
     return os;
 }
 
 template <typename T, nbits_t WIDTH>
-T& operator>>(T &is, RDPFTriple<WIDTH> &rdpftrip)
+T& operator>>(T &is, RDPFTriple<WIDTH> &rdpftrip)  // reads from file if T == std::ifstream
 {
-    is >> rdpftrip.dpf[0] >> rdpftrip.dpf[1] >> rdpftrip.dpf[2];
-    nbits_t depth = rdpftrip.dpf[0].depth();
-    rdpftrip.as_target.ashare = 0;
-    is.read((char *)&rdpftrip.as_target.ashare, BITBYTES(depth));
-    rdpftrip.xs_target.xshare = 0;
-    is.read((char *)&rdpftrip.xs_target.xshare, BITBYTES(depth));
+    // is >> rdpftrip.dpf[0] >> rdpftrip.dpf[1] >> rdpftrip.dpf[2];
+    // nbits_t depth = rdpftrip.dpf[0].depth();
+    // rdpftrip.as_target.ashare = 0;
+    // is.read(rdpftrip.as_target.ashare);
+    // rdpftrip.xs_target.xshare = 0;
+    // is.read(rdpftrip.xs_target.xshare);
     return is;
 }
 
@@ -440,8 +522,8 @@ T& operator>>(T &is, RDPFTriple<WIDTH> &rdpftrip)
 template <typename T, nbits_t WIDTH>
 T& operator<<(T &os, const RDPFPair<WIDTH> &rdpfpair)
 {
-    write_maybe_expanded(os, rdpfpair.dpf[0], true);
-    write_maybe_expanded(os, rdpfpair.dpf[1], true);
+    write_maybe_expanded(os, rdpfpair.dpf[0], false);
+    write_maybe_expanded(os, rdpfpair.dpf[1], false);
     return os;
 }
 
