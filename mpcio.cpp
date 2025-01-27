@@ -619,7 +619,7 @@ void MPCTIO::queue_server(const mpz_class &data) {
 
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcpio.serverios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
         mpcpio.msgs_sent[thread_num] += msg;
 
         std::vector<char> data_copy(len);
