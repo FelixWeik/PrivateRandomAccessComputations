@@ -416,6 +416,9 @@ Duoram<T>::Shape::MemRefS<U,FT,FST,Sh,WIDTH>::operator FT()
 
 // Oblivious update to a shared index of Duoram memory, only for
 // FT = RegAS or RegXS.  The template parameters are as above.
+
+// T & U & FT & FST= RegAS / XS
+// Sh = Flat
 template <typename T>
 template <typename U, typename FT, typename FST, typename Sh, nbits_t WIDTH>
 typename Duoram<T>::Shape::template MemRefS<U,FT,FST,Sh,WIDTH>
@@ -428,36 +431,50 @@ typename Duoram<T>::Shape::template MemRefS<U,FT,FST,Sh,WIDTH>
     if (player < 2) {
         // Computational players do this
 
-        const RDPFTriple<WIDTH> &dt = *(oblividx->dt);  // possible, since MemRefS friend class of OblivIndex
+        const RDPFTriple<WIDTH> &dt = *(oblividx->dt);
         const nbits_t windex = oblividx->windex();
         const nbits_t depth = dt.depth();
 
         // Compute the index and message offsets
         U indoffset;
         dt.get_target(indoffset);
-        indoffset -= oblividx->idx;
-        typename RDPF<WIDTH>::template W<FT> MW;
+        indoffset -= oblividx->idx;  // idx = RegAS || RegXS
+        typename RDPF<WIDTH>::template W<FT> MW; // W = std::array<T, WIDTH>
         MW[windex] = M;
-        auto Moffset = std::make_tuple(MW, MW, MW);
-        typename RDPFTriple<WIDTH>::template WTriple<FT> scaled_val;
+        auto Moffset = std::make_tuple(MW, MW, MW);  // = std::tuple< 3x std::array<T, WIDTH> >
+        typename RDPFTriple<WIDTH>::template WTriple<FT> scaled_val;  // = std::tuple< 3x std::array<FT, WIDTH> >
         dt.scaled_value(scaled_val);
         Moffset -= scaled_val;
 
         // Send them to the peer, and everything except the first offset
         // to the server
-        shape.tio.queue_peer(&indoffset, BITBYTES(depth));
-        shape.tio.iostream_peer() << Moffset;
-        shape.tio.queue_server(&indoffset, BITBYTES(depth));
-        shape.tio.iostream_server() << std::get<1>(Moffset) <<
-            std::get<2>(Moffset);
+
+        shape.yield();
+
+        mpz_class indoffset_tmp(indoffset.share().get_mpz_t());
+        indoffset_tmp = 1;
+
+        shape.tio.queue_peer(indoffset_tmp);
+        shape.tio.queue_server(indoffset_tmp);
+
+        shape.tio.iostream_peer().write(std::get<0>(Moffset));
+        shape.tio.iostream_peer().write(std::get<1>(Moffset));
+        shape.tio.iostream_peer().write(std::get<2>(Moffset));
+
+        shape.tio.iostream_server().write(std::get<1>(Moffset));
+        shape.tio.iostream_server().write(std::get<2>(Moffset));
 
         shape.yield();
 
         // Receive the above from the peer
-        U peerindoffset;
+        mpz_class peerindoffset_tmp;
         typename RDPFTriple<WIDTH>::template WTriple<FT> peerMoffset;
-        shape.tio.recv_peer(&peerindoffset, BITBYTES(depth));
-        shape.tio.iostream_peer() >> peerMoffset;
+        shape.tio.recv_peer(peerindoffset_tmp);
+        U peerindoffset(peerindoffset_tmp);
+
+        shape.tio.iostream_peer().write(std::get<0>(peerMoffset));
+        shape.tio.iostream_peer().write(std::get<1>(peerMoffset));
+        shape.tio.iostream_peer().write(std::get<2>(peerMoffset));
 
         // Reconstruct the total offsets
         auto indshift = combine(indoffset, peerindoffset, depth);
@@ -502,10 +519,17 @@ typename Duoram<T>::Shape::template MemRefS<U,FT,FST,Sh,WIDTH>
 
         // Receive the index and message offsets from the computational
         // players and combine them
-        shape.tio.recv_p0(&p0indoffset, BITBYTES(depth));
-        shape.tio.iostream_p0() >> p0Moffset;
-        shape.tio.recv_p1(&p1indoffset, BITBYTES(depth));
-        shape.tio.iostream_p1() >> p1Moffset;
+        mpz_class p0indoffset_tmp, p1indoffset_tmp;
+        shape.tio.recv_p0(p0indoffset_tmp);
+
+        shape.tio.iostream_p0().read(std::get<0>(p0Moffset));
+        shape.tio.iostream_p0().read(std::get<1>(p0Moffset));
+
+        shape.tio.recv_p1(p1indoffset_tmp);
+
+        shape.tio.iostream_p1().read(std::get<0>(p1Moffset));
+        shape.tio.iostream_p1().read(std::get<1>(p1Moffset));
+
         auto indshift = combine(p0indoffset, p1indoffset, depth);
         auto Mshift = combine(p0Moffset, p1Moffset);
 
