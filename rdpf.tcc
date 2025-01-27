@@ -366,6 +366,7 @@ std::ifstream& read_maybe_expanded(std::ifstream &is, RDPF<WIDTH> &rdpf,
     nbits_t depth;
     is.read(reinterpret_cast<char*>(&depth), sizeof(depth));
     rdpf.maxdepth = depth;
+    rdpf.curdepth = depth;  // assumption that no expansion is stored (and thus no functionality will be reused for that)
 
     rdpf.cw.resize(depth - 1);
     for (nbits_t i=0; i < depth-1; ++i) {
