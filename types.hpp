@@ -47,7 +47,8 @@ struct RegAS {
         ashare = a;
     }
 
-    inline value_t share() const { return ashare; }
+    mpz_class share() const { return ashare; }
+    void copy_share(mpz_class& res) { res = ashare; }
     void set(value_t s) { ashare = s; }
 
     // Set each side's share to a random value nbits bits long
@@ -208,11 +209,14 @@ struct RegXS {
 
     RegXS() : xshare(0) {}
     RegXS(const RegBS &b) { xshare = value_t(b.bshare) ? value_t(~0) : value_t(0); }
-    RegXS(const value_t &x) {
+
+
+    RegXS(const mpz_class &x) {
         xshare = x;
     }
 
-    [[nodiscard]] value_t share() const { return xshare; }
+    void copy_share(mpz_class &res) const { res = xshare; }
+    mpz_class share() const { return xshare; }
     void set(const value_t& s) { xshare = s; }
 
     // Set each side's share to a random value nbits bits long
@@ -853,7 +857,7 @@ T& operator>>(T& is, std::array<S,N> &x)
 
 template <typename T, typename S, size_t N>
 T& operator<<(T& os, const std::array<S,N> &xs)
-{
+{  //TODO wird falsch für RegAS / RegXS aufgerufen (warum wird der überhaupt auf mpcsingleiostream aufgerufen)
     for (auto &x : xs) {
         auto tmp = mpz_get_str(nullptr, 10, x.share().get_mpz_t());
         os.write(tmp, sizeof tmp);
@@ -935,7 +939,7 @@ T& operator<<(T& os, const std::tuple<std::array<S,N>, std::array<S,N>> &x)
 
 template <typename T, typename S, size_t N>
 T& operator>>(T& is, std::tuple<std::array<S,N>, std::array<S,N>, std::array<S,N>> &x)
-{
+{  //TODO hier aufteilen
     is >> std::get<0>(x) >> std::get<1>(x) >> std::get<2>(x);
     return is;
 }
