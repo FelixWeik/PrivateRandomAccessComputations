@@ -322,7 +322,7 @@ public:
         size_t len;
         char* serialized = serialize_to_binary(value, len);
         if (len == 0) {
-            mpz_class tmp = -1;
+            mpz_class tmp = 1;
             serialized = serialize_to_binary(tmp, len);
         }
         size_t newmsg = sio.queue(serialized, len, lamport);
@@ -355,6 +355,50 @@ public:
         for (auto &leaf : leafnode) {
             write(leaf);
         }
+        return *this;
+    }
+
+    MPCSingleIOStream& write(const RegAS &a) {
+        write(a.ashare);
+        return *this;
+    }
+
+    MPCSingleIOStream& write(const RegXS &x) {
+        write(x.xshare);
+        return *this;
+    }
+
+    MPCSingleIOStream& write(const std::tuple<RegAS, RegAS> &tuple) {
+        write(std::get<0>(tuple).ashare);
+        write(std::get<1>(tuple).ashare);
+        return *this;
+    }
+
+    MPCSingleIOStream& write(const std::tuple<RegXS, RegXS> &tuple) {
+        write(std::get<0>(tuple).xshare);
+        write(std::get<1>(tuple).xshare);
+        return *this;
+    }
+
+    MPCSingleIOStream& read(RegXS &x) {
+        read(x.xshare);
+        return *this;
+    }
+
+    MPCSingleIOStream& read(RegAS &a) {
+        read(a.ashare);
+        return *this;
+    }
+
+    MPCSingleIOStream& read(std::tuple<RegAS, RegAS> &tuple) {
+        read(std::get<0>(tuple).ashare);
+        read(std::get<1>(tuple).ashare);
+        return *this;
+    }
+
+    MPCSingleIOStream& read(std::tuple<RegXS, RegXS> &tuple) {
+        read(std::get<0>(tuple).xshare);
+        read(std::get<1>(tuple).xshare);
         return *this;
     }
 
