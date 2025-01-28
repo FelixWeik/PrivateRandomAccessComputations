@@ -806,10 +806,6 @@ static void duoram(MPCIO &mpcio,
         mpcio.reset_stats();
         tio.reset_lamport();
 
-        // Comparing functionality for testing
-        auto A_valuet = static_cast<T>(A[prev_index]);
-        A_tmp.test(A_valuet);
-
         // Read the linked list starting with prev_index
         T cur_index = prev_index;
         for (int i=0;i<items;++i) {
@@ -873,26 +869,6 @@ static void duoram(MPCIO &mpcio,
         }
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
-
-
-        std::cout << "\n";
-        mpcio.reset_stats();
-        tio.reset_lamport();
-
-        if (depth <= 30) {
-            auto check = A.reconstruct();
-            auto head = A.reconstruct(prev_index);
-            if (tio.player() == 0) {
-                int width = (depth+3)/4;
-                printf("Head of linked list: %0*lx\n\n", width,
-                    head.share() & mask);
-                std::cout << "Non-zero reconstructed database entries:\n";
-                for (address_t i=0;i<size;++i) {
-                    value_t share = check[i].share() & mask;
-                    if (share) printf("%0*x: %0*lx\n", width, i, width, share);
-                }
-            }
-        }
     });
 }
 
