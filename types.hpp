@@ -7,8 +7,6 @@
 #include <cstdint>
 #include <iostream>
 #include <ostream>
-#include <x86intrin.h>  // SSE and AVX intrinsics
-#include <bsd/stdlib.h> // arc4random_buf
 
 #include "types.tcc"
 #include "bitutils.hpp"
