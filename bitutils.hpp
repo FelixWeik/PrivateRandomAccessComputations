@@ -384,12 +384,14 @@ inline mpz_class deserialize_from_binary(const char* serialized, size_t len) {
 }
 
 inline char* serialize_to_binary(const mpz_class& value, size_t& len) {
-    void* data = mpz_export(nullptr, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
-
-    char* serialized = new char[len];
+    void* data = nullptr;
+    mpz_export(nullptr, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
+    data = std::malloc(len);
+    if (!data) throw std::bad_alloc();
+    mpz_export(data, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
+    auto serialized = new char[len];
     std::memcpy(serialized, data, len);
-    free(data);
-
+    std::free(data);
     return serialized;
 }
 
