@@ -798,7 +798,7 @@ static void duoram(MPCIO &mpcio,
             list_indices.push_back(next_index);
             prev_index = next_index;
         }
-        T A_tmp = A[prev_index];  // has type Duoram<RegAS>::Shape::MemRefS<RegAS, RegAS, std::nullopt_t, Duoram<RegAS>::Flat, (unsigned char)1>
+        // T A_tmp = A[prev_index];  // has type Duoram<RegAS>::Shape::MemRefS<RegAS, RegAS, std::nullopt_t, Duoram<RegAS>::Flat, (unsigned char)1>
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);
 
@@ -834,7 +834,7 @@ static void duoram(MPCIO &mpcio,
             indep_indices.push_back(list_indices[i]+one);
             indep_values.push_back(read_outputs[i]+one);
         }
-        // Update all the indices at once
+        // // Update all the indices at once
         A[indep_indices] += indep_values;
         tio.sync_lamport();
         mpcio.dump_stats(std::cout);

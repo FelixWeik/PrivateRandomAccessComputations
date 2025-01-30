@@ -358,7 +358,7 @@ Duoram<T>::Shape::MemRefS<U,FT,FST,Sh,WIDTH>::operator FT()
 
         // Receive the cancellation term from the server
         FT gamma;
-        shape.tio.iostream_server() >> gamma;
+        shape.tio.iostream_server().read(gamma);
         res += gamma;
     } else {
         // The server does this
@@ -407,8 +407,8 @@ Duoram<T>::Shape::MemRefS<U,FT,FST,Sh,WIDTH>::operator FT()
         auto tmp0 = mpz_get_str(nullptr, 10, std::get<0>(gamma).share().get_mpz_t());
         auto tmp1 = mpz_get_str(nullptr, 10, std::get<1>(gamma).share().get_mpz_t());
 
-        shape.tio.iostream_p0().write(tmp0, sizeof tmp0);  //TODO checken, ob nicht doch 10er Basis
-        shape.tio.iostream_p1().write(tmp1, sizeof tmp1);
+        shape.tio.iostream_p0().write(std::get<0>(gamma));  //TODO checken, ob nicht doch 10er Basis
+        shape.tio.iostream_p1().write(std::get<1>(gamma));
         shape.yield();
     }
     return res;  // The server will always get 0

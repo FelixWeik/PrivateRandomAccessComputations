@@ -679,6 +679,10 @@ size_t MPCTIO::recv_peer(mpz_class &data) {
         size_t len = 0;
         size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
 
+        if (len > 200) {
+            len = 1;
+        }
+
         std::vector<char> buffer(len);
         res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
 
