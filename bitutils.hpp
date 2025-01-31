@@ -98,26 +98,6 @@ inline std::array<mpz_class, LWIDTH> xor_if(
     return res;
 }
 
-//TODO falls gewünscht auf größere Datenwerte (blöcke even) anpassen
-inline __m128i mpz_to_m128i(const mpz_class& value) {
-    size_t num_bytes = (mpz_sizeinbase(value.get_mpz_t(), 2) + 7) / 8;
-    auto* buffer = new unsigned char[16];
-    if (num_bytes > 16) {
-        std::cerr << "mpz_class is too large to fit in 128 bits." << std::endl;
-        delete[] buffer;
-        return _mm_setzero_si128();
-    }
-    mpz_export(buffer, nullptr, -1, 1, 0, 0, value.get_mpz_t());
-    __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer));
-    delete[] buffer;
-    return result;
-}
-
-inline mpz_class m128i_to_mpz_class(__m128i vec) {
-    uint64_t values[2];
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(values), vec);
-    return mpz_class(values[0]) << 64 | mpz_class(values[1]);
-}
 
 // populates out with a random value of size nbits
 inline void random_mpz(mpz_class &out, size_t nbits = VALUE_BITS, int seed = 42) {
@@ -137,6 +117,35 @@ inline mpz_class random_mpz(size_t nbits = VALUE_BITS, int seed = 42) {
     gmp_randclear(state);
     return res;
 }
+
+inline __m128i random_m128i() {
+    uint64_t lo, hi;
+    asm volatile ("rdrand %0" : "=r" (lo));  // 64 Bit zufällig
+    asm volatile ("rdrand %0" : "=r" (hi));  // weitere 64 Bit
+    return _mm_set_epi64x(hi, lo);
+}
+
+//TODO falls gewünscht auf größere Datenwerte (blöcke even) anpassen
+inline __m128i mpz_to_m128i(const mpz_class& value) {
+    size_t num_bytes = mpz_sizeinbase(value.get_mpz_t(), 10);
+    auto* buffer = new unsigned char[num_bytes];
+    if (num_bytes > 16) {
+        // std::cerr << "mpz_class is too large to fit in 128 bits." << std::endl;
+        delete[] buffer;
+        return random_m128i();
+    }
+    mpz_export(buffer, nullptr, -1, 1, 0, 0, value.get_mpz_t());
+    __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer));
+    delete[] buffer;
+    return result;
+}
+
+inline mpz_class m128i_to_mpz_class(__m128i vec) {
+    uint64_t values[2];
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(values), vec);
+    return mpz_class(values[0]) << 64 | mpz_class(values[1]);
+}
+
 
 inline uint8_t get_lsb(const mpz_class& block) {
     return mpz_tstbit(block.get_mpz_t(), 0) != 0;
@@ -383,44 +392,48 @@ inline mpz_class deserialize_from_binary(const char* serialized, size_t len) {
     return value;
 }
 
-inline char* serialize_to_binary(const mpz_class& value, size_t& len) {
-    void* data = nullptr;
-    mpz_export(nullptr, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
-    data = std::malloc(len);
-    if (!data) throw std::bad_alloc();
-    mpz_export(data, &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
-    auto serialized = new char[len];
-    std::memcpy(serialized, data, len);
-    std::free(data);
-    return serialized;
+inline void serialize_to_binary(const mpz_class& value, size_t& len, std::vector<char> &buf) {
+    len = mpz_sizeinbase(value.get_mpz_t(), 10);
+    buf.resize(len);
+    mpz_export(buf.data(), &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
 }
 
-inline char* serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len) {
+//TODO HIER HIER HIER
+inline void serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len, std::vector<char> &buf) {
     const auto& [first, second] = halftriple;
 
-    // Serialisiere beide Werte
+    std::vector<char> buf0, buf1;
     size_t len_first = 0, len_second = 0;
-    char* serialized_first = serialize_to_binary(first, len_first);
-    char* serialized_second = serialize_to_binary(second, len_second);
+    serialize_to_binary(first, len_first, buf0);
+    serialize_to_binary(second, len_second, buf1);
+    std::vector<char> vec(sizeof(size_t));
+    std::memcpy(vec.data(), &len_first, sizeof(size_t));
+    buf.insert(buf.end(),vec.begin(),vec.end());
 
-    // Gesamtlänge berechnen und Speicher reservieren
-    len = sizeof(size_t) * 2 + len_first + len_second;
-    char* serialized = new char[len];
+    buf.insert(buf.end(),buf0.begin(),buf0.end());
+    std::vector<char> vec1(sizeof(size_t));
+    std::memcpy(vec1.data(), &len_second, sizeof(size_t));
 
-    // Schreibe Länge und Daten von `first`
-    std::memcpy(serialized, &len_first, sizeof(size_t));
-    std::memcpy(serialized + sizeof(size_t), serialized_first, len_first);
+    buf.insert(buf.end(),vec1.begin(),vec1.end());
+    buf.insert(buf.end(),buf1.begin(),buf1.end());
 
-    // Schreibe Länge und Daten von `second`
-    std::memcpy(serialized + sizeof(size_t) + len_first, &len_second, sizeof(size_t));
-    std::memcpy(serialized + sizeof(size_t) * 2 + len_first, serialized_second, len_second);
-
-    // Speicher für temporäre Serialisierungen freigeben
-    delete[] serialized_first;
-    delete[] serialized_second;
-
-    return serialized;
+    len = len_first + len_second;
 }
+
+// inline void serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len, std::vector<char> &buf) {
+//
+//     size_t tmp0;
+//     std::vector<char> tmp_buf;
+//     serialize_to_binary(std::get<0>(halftriple), tmp0, tmp_buf);
+//
+//     size_t tmp1;
+//     std::vector<char> tmp_buf1;
+//     serialize_to_binary(std::get<1>(halftriple), tmp1, tmp_buf1);
+//
+//     len = tmp0 + tmp1;
+//     buf.insert(buf.end(),tmp_buf.begin(),tmp_buf.end());
+//     buf.insert(buf.end(),tmp_buf1.begin(),tmp_buf1.end());
+// }
 
 inline std::tuple<mpz_class, mpz_class> deserialize_halftriple(const char* serialized, size_t len) {
     // Längen der beiden Werte extrahieren

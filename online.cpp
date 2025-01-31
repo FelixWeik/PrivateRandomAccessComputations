@@ -858,7 +858,7 @@ static void duoram(MPCIO &mpcio,
         mpcio.reset_stats();
         tio.reset_lamport();
         T three;
-        three.set(3*tio.player());  // Sets the shared value to 3
+        three.set(3*tio.player());
         // Follow the linked list and whenever A[addr]=val, set
         // A[addr+3]=val+3
         cur_index = prev_index;

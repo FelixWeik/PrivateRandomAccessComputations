@@ -2,7 +2,7 @@
 #define TYPES_TCC
 
 #ifndef VALUE_BITS
-#define VALUE_BITS 64
+#define VALUE_BITS 128
 #include <gmpxx.h>
 #endif
 

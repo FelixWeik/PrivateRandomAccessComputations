@@ -5,6 +5,7 @@
 #include "bitutils.hpp"
 #include "coroutine.hpp"
 
+static int test1 = 0;
 void MPCSingleIO::async_send_from_msgqueue()
 {
 #ifdef SEND_LAMPORT_CLOCKS
@@ -59,11 +60,10 @@ size_t MPCSingleIO::queue(const void *data, size_t len, lamport_t lamport)
 
     // If we already have some full packets worth of data, may as
     // well send it.
-    if (dataqueue.size() > 28800) {
-        std::cout << "Kuckuck" << std::endl;
-    }
+    // if (dataqueue.size() > 10) {
+    //     std::cout << "Kuckuck" << std::endl;
+    // }
     send(true);
-
 
     return newmsg;
 }
@@ -111,26 +111,21 @@ void MPCSingleIO::send(bool implicit_send)
 }
 
 mpz_class MPCSingleIO::recv(lamport_t& lamport) {
-    // Header lesen (Datenlänge + Lamport-Zeitstempel)
-    char hdr[sizeof(uint32_t) + sizeof(lamport_t)];
+    std::vector<char> hdr(sizeof(size_t));
     boost::asio::read(sock, boost::asio::buffer(hdr, sizeof(hdr)));
 
-    // Header-Informationen extrahieren
-    uint32_t datalen;
+    size_t datalen;
     lamport_t recv_lamport;
-    std::memcpy(&datalen, hdr, sizeof(datalen));
-    std::memcpy(&recv_lamport, hdr + sizeof(datalen), sizeof(lamport_t));
+    std::memcpy(&datalen, hdr.data(), sizeof(datalen));
+    std::memcpy(&recv_lamport, hdr.data() + sizeof(datalen), sizeof(lamport_t));
 
     lamport_t new_lamport = recv_lamport + 1;
     if (lamport < new_lamport) {
         lamport = new_lamport;
     }
 
-    // Daten empfangen
     std::vector<char> buffer(datalen);
     boost::asio::read(sock, boost::asio::buffer(buffer.data(), datalen));
-
-    // Deserialisieren
     return deserialize_from_binary(buffer.data(), datalen);
 }
 
@@ -573,62 +568,64 @@ void MPCTIO::queue_peer(const void *data, size_t len)
 
 void MPCTIO::queue_peer(const HalfTriple& data) {
     if (mpcio.player < 2) {
-        size_t len = 0;
-        char* to_send = serialize_halftriple(data, len);
+        size_t len0, len1;
+        std::vector<char> buf0, buf1;
+        serialize_to_binary(std::get<0>(data), len0, buf0);
+        serialize_to_binary(std::get<1>(data), len1, buf1);
 
         MPCPeerIO& mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
-        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len0), sizeof(len0), thread_lamport);
         mpcpio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcpio.peerios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcpio.peerios[thread_num].queue(buf0.data(), len0, thread_lamport);
         mpcpio.msgs_sent[thread_num] += newmsg;
-        mpcpio.msg_bytes_sent[thread_num] += len;
+        mpcpio.msg_bytes_sent[thread_num] += len0;
 
-        delete[] to_send;
+        msg += mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len1), sizeof(len1), thread_lamport);
+        mpcpio.msgs_sent[thread_num] += msg;
+
+        newmsg += mpcpio.peerios[thread_num].queue(buf1.data(), len1, thread_lamport);
+        mpcpio.msgs_sent[thread_num] += newmsg;
+        mpcpio.msg_bytes_sent[thread_num] += len1;
     }
 }
 
 void MPCTIO::queue_peer(const mpz_class &data) {
     if (mpcio.player < 2) {
         size_t len = 0;
-        auto to_send = serialize_to_binary(data, len);
+        std::vector<char> buf;
+        serialize_to_binary(data, len,buf);
 
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
         size_t msg = mpcpio.peerios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
         mpcpio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
+        // std::vector<char> data_copy(len);
+        // std::memcpy(data_copy.data(), buf.data(), len);
 
-        size_t newmsg = mpcpio.peerios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcpio.peerios[thread_num].queue(buf.data(), len, thread_lamport);
         mpcpio.msgs_sent[thread_num] += newmsg;
         mpcpio.msg_bytes_sent[thread_num] += len;
-        delete[] to_send;
+        // delete[] to_send;
     }
 }
 
 void MPCTIO::queue_server(const mpz_class &data) {
     if (mpcio.player < 2) {
         size_t len = 0;
-        auto to_send = serialize_to_binary(data, len);
+        std::vector<char> buf;
+        serialize_to_binary(data, len, buf);
 
         MPCPeerIO &mpcpio = static_cast<MPCPeerIO&>(mpcio);
 
         size_t msg = mpcpio.serverios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
         mpcpio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcpio.serverios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcpio.serverios[thread_num].queue(buf.data(), len, thread_lamport);
         mpcpio.msgs_sent[thread_num] += newmsg;
         mpcpio.msg_bytes_sent[thread_num] += len;
-        delete[] to_send;
     }
 }
 
@@ -648,6 +645,7 @@ void MPCTIO::queue_server(const void *data, size_t len)
 size_t MPCTIO::recv_peer(HalfTriple& data) {
     if (mpcio.player < 2) {
         MPCPeerIO& mpcpio = static_cast<MPCPeerIO&>(mpcio);
+        mpz_class mpz0, mpz1;
 
         size_t len = 0;
         size_t res = mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
@@ -656,8 +654,21 @@ size_t MPCTIO::recv_peer(HalfTriple& data) {
         res = mpcpio.peerios[thread_num].recv(buffer.data(), len, thread_lamport);
 
         if (res > 0) {
-            data = deserialize_halftriple(buffer.data(), len);
+            mpz0 = deserialize_from_binary(buffer.data(), len);
         }
+
+        len = 0;
+        size_t tmp =  mpcpio.peerios[thread_num].recv(&len, sizeof(len), thread_lamport);
+        res += tmp;
+
+        std::vector<char> buffer1(len);
+        res = mpcpio.peerios[thread_num].recv(buffer1.data(), len, thread_lamport);
+
+        if (res > 0) {
+            mpz1 = deserialize_from_binary(buffer1.data(), len);
+        }
+
+        data = std::make_tuple(mpz0, mpz1);
         return res;
     }
 
@@ -748,39 +759,41 @@ size_t MPCTIO::recv_server(void *data, size_t len)
 // Queue up data to p0 or p1
 void MPCTIO::queue_p0(const HalfTriple& data) {
     if (mpcio.player == 2) {
-        size_t len = 0;
-        char* to_send = serialize_halftriple(data, len);
+        size_t len0, len1;
+        std::vector<char> buf0, buf1;
+        serialize_to_binary(std::get<0>(data), len0, buf0);
+        serialize_to_binary(std::get<1>(data), len1, buf1);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        size_t msg = mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len0), sizeof(len0), thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(buf0.data(), len0, thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += newmsg;
-        mpcsrvio.msg_bytes_sent[thread_num] += len;
+        mpcsrvio.msg_bytes_sent[thread_num] += len0;
 
-        delete[] to_send;
+        msg += mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len1), sizeof(len1), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
+
+        newmsg += mpcsrvio.p0ios[thread_num].queue(buf1.data(), len1, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len1;
     }
 }
 
 void MPCTIO::queue_p0(const mpz_class &data) {
     if (mpcio.player == 2) {
         size_t len = 0;
-        auto to_send = serialize_to_binary(data, len);
+        std::vector<char> buf;
+        serialize_to_binary(data, len, buf);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
         size_t msg = mpcsrvio.p0ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcsrvio.p0ios[thread_num].queue(buf.data(), len, thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += newmsg;
         mpcsrvio.msg_bytes_sent[thread_num] += len;
     }
@@ -799,39 +812,41 @@ void MPCTIO::queue_p0(const void *data, size_t len)
 
 void MPCTIO::queue_p1(const HalfTriple& data) {
     if (mpcio.player == 2) {
-        size_t len = 0;
-        char* to_send = serialize_halftriple(data, len);
+        size_t len0, len1;
+        std::vector<char> buf0, buf1;
+        serialize_to_binary(std::get<0>(data), len0, buf0);
+        serialize_to_binary(std::get<1>(data), len1, buf1);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
-        size_t msg = mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
+        size_t msg = mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len0), sizeof(len0), thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(buf0.data(), len0, thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += newmsg;
-        mpcsrvio.msg_bytes_sent[thread_num] += len;
+        mpcsrvio.msg_bytes_sent[thread_num] += len0;
 
-        delete[] to_send;
+        msg += mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len1), sizeof(len1), thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += msg;
+
+        newmsg += mpcsrvio.p1ios[thread_num].queue(buf1.data(), len1, thread_lamport);
+        mpcsrvio.msgs_sent[thread_num] += newmsg;
+        mpcsrvio.msg_bytes_sent[thread_num] += len1;
     }
 }
 
 void MPCTIO::queue_p1(const mpz_class &data) {
     if (mpcio.player == 2) {
         size_t len = 0;
-        auto to_send = serialize_to_binary(data, len);
+        std::vector<char> buf;
+        serialize_to_binary(data, len, buf);
 
         MPCServerIO &mpcsrvio = static_cast<MPCServerIO&>(mpcio);
 
         size_t msg = mpcsrvio.p1ios[thread_num].queue(reinterpret_cast<const char*>(&len), sizeof(len), thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += msg;
 
-        std::vector<char> data_copy(len);
-        std::memcpy(data_copy.data(), to_send, len);
-
-        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(data_copy.data(), len, thread_lamport);
+        size_t newmsg = mpcsrvio.p1ios[thread_num].queue(buf.data(), len, thread_lamport);
         mpcsrvio.msgs_sent[thread_num] += newmsg;
         mpcsrvio.msg_bytes_sent[thread_num] += len;
     }

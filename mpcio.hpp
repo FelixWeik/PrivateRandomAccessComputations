@@ -320,17 +320,20 @@ public:
 
     MPCSingleIOStream& write(const mpz_class& value) {
         size_t len;
-        char* serialized = serialize_to_binary(value, len);
-        if (len == 0) {
-            mpz_class tmp = 1;
-            serialized = serialize_to_binary(tmp, len);
+        std::vector<char> buf;
+        serialize_to_binary(value, len, buf);
+
+        size_t newmsg = 0;
+        if (len != 0) {
+            newmsg += sio.queue(reinterpret_cast<char*>(&len), sizeof(len), lamport);
+            newmsg += sio.queue(buf.data(), len, lamport);
+        } else {
+            size_t zero = 0;
+            newmsg += sio.queue(reinterpret_cast<char*>(&zero), sizeof(size_t), lamport);
         }
-        size_t newmsg = sio.queue(serialized, len, lamport);
 
         msgs_sent += newmsg;
         msg_bytes_sent += len;
-
-        delete[] serialized;
         return *this;
     }
 
@@ -408,10 +411,16 @@ public:
     }
 
     MPCSingleIOStream& read(mpz_class& value) {
-        value = sio.recv(lamport);
-        if (value == -1) {
-            value = 0;
+        std::vector<char> buf(sizeof(size_t));
+        size_t len;
+        sio.recv(&len, sizeof(len), lamport);
+        if (len != 0 && len < 100) {
+            std::vector<char> mpz(len);
+            sio.recv(mpz.data(), len, lamport);
+            value = deserialize_from_binary(mpz.data(), len);
+            return *this;
         }
+        value = 0;
         return *this;
     }
 
@@ -442,7 +451,7 @@ public:
         for (size_t i = 0; i < WIDTH; i++) {
             mpz_class tmp;
             read(tmp);
-            leafnode.at(i) = tmp;
+            leafnode.at(i) = std::move(tmp);
         }
         return *this;
     }
