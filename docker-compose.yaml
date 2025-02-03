@@ -1,0 +1,37 @@
+services:
+  p0:
+    image: gmp_mpz_class:latest
+    networks:
+      - oram_test
+    container_name: p0
+    environment:
+      - LATENCY=100ms
+      - BANDWIDTH=1mbit
+    privileged: true
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay 1 rate 2 && ./prac -p 0 && ./prac 0 duoram 3 1"]
+
+  p1:
+    image: gmp_mpz_class:latest
+    networks:
+      - oram_test
+    container_name: p1
+    environment:
+      - LATENCY=100ms
+      - BANDWIDTH=1mbit
+    privileged: true
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay 1 rate 2 && ./prac -p 1 p0 && ./prac 1 p0 duoram 3 1"]
+
+  p2:
+    image: gmp_mpz_class:latest
+    networks:
+      - oram_test
+    container_name: p2
+    environment:
+      - LATENCY=100ms
+      - BANDWIDTH=1mbit
+    privileged: true
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay 1 rate 2 && ./prac -p 2 p0 p1 r3:10 && ./prac 2 p0 p1 duoram 3 1"]
+
+networks:
+  oram_test:
+    driver: bridge
