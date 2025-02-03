@@ -1,6 +1,6 @@
 services:
   p0:
-    image: gmp_mpz_class:latest
+    image: main:latest
     networks:
       - oram_test
     container_name: p0
@@ -8,7 +8,7 @@ services:
     entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 0 && ./prac 0 duoram ${DEPTH} ${MESSAGES}"]
 
   p1:
-    image: gmp_mpz_class:latest
+    image: main:latest
     networks:
       - oram_test
     container_name: p1
@@ -16,7 +16,7 @@ services:
     entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 1 p0 && ./prac 1 p0 duoram ${DEPTH} ${MESSAGES}"]
 
   p2:
-    image: gmp_mpz_class:latest
+    image: main:latest
     networks:
       - oram_test
     container_name: p2
