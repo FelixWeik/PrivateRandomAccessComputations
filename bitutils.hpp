@@ -128,7 +128,7 @@ inline __m128i random_m128i() {
 //TODO falls gewünscht auf größere Datenwerte (blöcke even) anpassen
 inline __m128i mpz_to_m128i(const mpz_class& value) {
     size_t num_bytes = mpz_sizeinbase(value.get_mpz_t(), 10);
-    auto* buffer = new unsigned char[num_bytes];
+    auto* buffer = new unsigned char[16];
     if (num_bytes > 16) {
         // std::cerr << "mpz_class is too large to fit in 128 bits." << std::endl;
         delete[] buffer;
