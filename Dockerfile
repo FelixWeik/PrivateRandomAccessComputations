@@ -14,4 +14,4 @@ RUN apt update && apt upgrade -y && \
     libbsd-dev
 WORKDIR /app
 COPY . /app
-RUN make
+RUN make -j 6

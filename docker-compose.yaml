@@ -1,27 +1,27 @@
 services:
   p0:
-    image: gmp_mpz_class:latest
+    image: new_input_type:latest
     networks:
       - oram_test
     container_name: p0
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 0 && ./prac 0 duoram ${DEPTH} ${MESSAGES}"]
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 0 && ./prac 0 big ${DEPTH} ${MESSAGES}"]
 
   p1:
-    image: gmp_mpz_class:latest
+    image: new_input_type:latest
     networks:
       - oram_test
     container_name: p1
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 1 p0 && ./prac 1 p0 duoram ${DEPTH} ${MESSAGES}"]
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 1 p0 && ./prac 1 p0 big ${DEPTH} ${MESSAGES}"]
 
   p2:
-    image: gmp_mpz_class:latest
+    image: new_input_type:latest
     networks:
       - oram_test
     container_name: p2
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 2 p0 p1 r${DEPTH}:${PREPROC} && ./prac 2 p0 p1 duoram ${DEPTH} ${MESSAGES}"]
+    entrypoint: ["/bin/sh", "-c", "tc qdisc replace dev lo root netem delay ${LATENCY} rate ${BANDWIDTH} && ./prac -p 2 p0 p1 r${DEPTH}:${PREPROC} && ./prac 2 p0 p1 big ${DEPTH} ${MESSAGES}"]
 
 networks:
   oram_test:
