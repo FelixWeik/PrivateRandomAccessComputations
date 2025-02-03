@@ -56,14 +56,6 @@ struct RegAS {
         ashare &= mask;
     }
 
-    void test(RegAS astest) {
-        std::cout << "==== TEST RegAS ====" << std::endl;
-        std::cout << "test_share = " << astest.ashare << std::endl;
-        bool res = astest.ashare == this->ashare;
-        std::cout << "equal = " << res << std::endl;
-        std::cout << "==== TEST RegAS ====" << std::endl;
-    }
-
     RegAS &operator+=(const RegAS &rhs) {
         this->ashare += rhs.ashare;
         return *this;
@@ -227,14 +219,6 @@ struct RegXS {
         mpz_urandomb(xshare.get_mpz_t(), state, nbits);
         // arc4random_buf(&xshare, sizeof(xshare));
         xshare &= mask;
-    }
-
-    void test(const RegXS& xreg) const {
-        std::cout << "==== TEST RegXS ====" << std::endl;
-        std::cout << "test_share = " << xreg.xshare << std::endl;
-        bool res = xreg.xshare == this->xshare;
-        std::cout << "equal = " << res << std::endl;
-        std::cout << "==== TEST RegXS ====" << std::endl;
     }
 
     // For RegXS, + and * should be interpreted bitwise; that is, + is

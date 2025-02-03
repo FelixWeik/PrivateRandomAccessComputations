@@ -1220,8 +1220,6 @@ SelectTriple<DPFnode> MPCTIO::nodeselecttriple(yield_t &yield)
         if (mpcpio.mode != MODE_ONLINE) {
 
             // val = queued_nodeselecttriples.front();
-            std::cout << "size of dequeue: " << queued_nodeselecttriples.size() << std::endl;
-            std::cout << "size of dequeue 2: " << remaining_nodesselecttriples<< std::endl;
             // queued_nodeselecttriples.pop_front();
             // --remaining_nodesselecttriples;
         } else {
