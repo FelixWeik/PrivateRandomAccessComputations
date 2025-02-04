@@ -1285,7 +1285,6 @@ RDPFTriple<WIDTH>::RDPFTriple(MPCTIO &tio, yield_t &yield,
         std::cout << "Finished dpf " << i << std::endl;
     }
     mpc_xs_to_as(tio, yield, as_target, xs_target, depth, false);
-    std::cout << "Finished mpc_xs_to_as" << std::endl;
 }
 
 template <nbits_t WIDTH>
