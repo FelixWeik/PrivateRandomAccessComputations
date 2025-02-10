@@ -5,7 +5,7 @@ services:
       - oram_test
     container_name: p0
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY} && ./prac -p 0"]
+    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY} && ./prac -p 0 && ./prac 0 duoram ${DEPTH} ${MESSAGES}"]
 
   p1:
     image: main:latest
@@ -13,7 +13,7 @@ services:
       - oram_test
     container_name: p1
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY} && ./prac -p 1 p0"]
+    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY} && ./prac -p 1 p0 && ./prac 1 p0 duoram ${DEPTH} ${MESSAGES}"]
 
   p2:
     image: main:latest
@@ -21,7 +21,7 @@ services:
       - oram_test
     container_name: p2
     privileged: true
-    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY}  && ./prac -p 2 p0 p1 r${DEPTH}:${PREPROC}"]
+    entrypoint: ["/bin/sh", "-c", "echo 0 | tee /proc/sys/kernel/randomize_va_space && tc qdisc add dev eth0 root handle 1: htb default 12 && tc class add dev eth0 parent 1: classid 1:12 htb rate ${BANDWIDTH} && tc qdisc add dev eth0 parent 1:12 handle 10: netem delay ${LATENCY}  && ./prac -p 2 p0 p1 r${DEPTH}:${PREPROC} && ./prac 2 p0 p1 duoram ${DEPTH} ${MESSAGES}"]
 
 networks:
   oram_test:
