@@ -120,23 +120,50 @@ inline mpz_class random_mpz(size_t nbits = VALUE_BITS, int seed = 42) {
 
 inline __m128i random_m128i() {
     uint64_t lo, hi;
-    asm volatile ("rdrand %0" : "=r" (lo));  // 64 Bit zufällig
-    asm volatile ("rdrand %0" : "=r" (hi));  // weitere 64 Bit
+    asm volatile ("rdrand %0" : "=r" (lo));
+    asm volatile ("rdrand %0" : "=r" (hi));
     return _mm_set_epi64x(hi, lo);
 }
 
-//TODO falls gewünscht auf größere Datenwerte (blöcke even) anpassen
 inline __m128i mpz_to_m128i(const mpz_class& value) {
+    size_t count;
     size_t num_bytes = mpz_sizeinbase(value.get_mpz_t(), 10);
-    auto* buffer = new unsigned char[16];
-    if (num_bytes > 16) {
-        // std::cerr << "mpz_class is too large to fit in 128 bits." << std::endl;
-        delete[] buffer;
-        return random_m128i();
+    std::vector<unsigned char> buffer(num_bytes);
+    mpz_export(buffer.data(), &count, 1, 1, 0, 0, value.get_mpz_t());
+
+    std::vector<__m128i> result;
+    size_t num_chunks = (buffer.size() + 15) / 16;
+
+    result.resize(num_chunks, _mm_setzero_si128());
+
+    for (size_t i = 0; i < num_chunks; i++) {
+        unsigned char tmp[16] = {0};
+        size_t chunk_size = std::min<size_t>(16, buffer.size() - i * 16);
+        memcpy(tmp, buffer.data() + i * 16, chunk_size);
+        result[i] = _mm_loadu_si128(reinterpret_cast<__m128i *>(tmp));
     }
-    mpz_export(buffer, nullptr, -1, 1, 0, 0, value.get_mpz_t());
-    __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer));
-    delete[] buffer;
+
+    return result[0];
+}
+
+inline std::vector<__m128i> mpz_to_m128i_vec(const mpz_class &value) {
+    size_t count;
+    size_t num_bytes = mpz_sizeinbase(value.get_mpz_t(), 10);
+    std::vector<unsigned char> buffer(num_bytes);
+    mpz_export(buffer.data(), &count, 1, 1, 0, 0, value.get_mpz_t());
+
+    std::vector<__m128i> result;
+    size_t num_chunks = (buffer.size() + 15) / 16;
+
+    result.resize(num_chunks, _mm_setzero_si128());
+
+    for (size_t i = 0; i < num_chunks; i++) {
+        unsigned char tmp[16] = {0};
+        size_t chunk_size = std::min<size_t>(16, buffer.size() - i * 16);
+        memcpy(tmp, buffer.data() + i * 16, chunk_size);
+        result[i] = _mm_loadu_si128(reinterpret_cast<__m128i *>(tmp));
+    }
+
     return result;
 }
 

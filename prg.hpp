@@ -37,8 +37,13 @@ static inline void prg(__m128i &out, __m128i seed, bool whichchild,
 
 static inline void prg(DPFnode &out, const DPFnode &seed, bool whichchild,
     size_t &aes_ops) {
-    __m128i in = mpz_to_m128i(set_lsb(seed, whichchild));
+    auto tmp = mpz_to_m128i_vec(set_lsb(seed, whichchild));
+    __m128i in = tmp[0];
     __m128i mid;
+    for (auto &e : tmp) {
+        __m128i tmptmp;
+        AES_ECB_encrypt(tmptmp, e, prgkey.k, aes_ops);
+    }
     AES_ECB_encrypt(mid, mpz_to_m128i(set_lsb(seed, whichchild)), prgkey.k, aes_ops);
     out = m128i_to_mpz_class(_mm_xor_si128(mid, in));
 }
@@ -57,6 +62,16 @@ static inline void prgboth(__m128i &left, __m128i &right, __m128i seed,
 }
 
 static inline void prgboth(DPFnode &left, DPFnode &right, const DPFnode &seed, size_t &aes_ops) {
+    auto inl_vec = mpz_to_m128i_vec(set_lsb(seed, 0));
+    auto inr_vec = mpz_to_m128i_vec(set_lsb(seed, 1));
+    for (__m128i &l : inl_vec) {
+        __m128i tmptmp;
+        AES_ECB_encrypt(tmptmp, l, prgkey.k, aes_ops);
+    }
+    for (__m128i &r : inr_vec) {
+        __m128i tmptmp;
+        AES_ECB_encrypt(tmptmp, r, prgkey.k, aes_ops);
+    }
     __m128i inl = mpz_to_m128i(set_lsb(seed, 0));
     __m128i inr = mpz_to_m128i(set_lsb(seed, 1));
     __m128i midl, midr;
@@ -144,6 +159,17 @@ static inline void prgboth(std::array<__m128i,LWIDTH> &left,
 template <size_t LWIDTH>
 static inline void prgboth(std::array<DPFnode, LWIDTH> &left, std::array<DPFnode, LWIDTH> &right,
     const DPFnode &seed, size_t &aes_ops) {
+    auto inl_tmp = mpz_to_m128i_vec(set_lsb(seed, 0));
+    for (__m128i &l : inl_tmp) {
+        __m128i tmptmp;
+        AES_ECB_encrypt(tmptmp, l, leafprgkeys[0].k, aes_ops);
+    }
+    auto inr_tmp = mpz_to_m128i_vec(set_lsb(seed, 0));
+    for (__m128i &r : inr_tmp) {
+        __m128i tmptmp;
+        AES_ECB_encrypt(tmptmp, r, leafprgkeys[0].k, aes_ops);
+    }
+
     __m128i inl = mpz_to_m128i(set_lsb(seed, 0));
     __m128i inr = mpz_to_m128i(set_lsb(seed, 1));
     __m128i midl0, midl1, midl2;

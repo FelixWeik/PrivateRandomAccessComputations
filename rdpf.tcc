@@ -294,7 +294,7 @@ template <nbits_t WIDTH>
 MPCSingleIOStream& read_maybe_expanded(MPCSingleIOStream &is, RDPF<WIDTH> &rdpf) {
     is.read(rdpf.seed);
 
-    nbits_t depth = 3;  //TODO adjust when depth changes
+    nbits_t depth = 15;
     rdpf.maxdepth = depth;
     rdpf.curdepth = depth;
 
