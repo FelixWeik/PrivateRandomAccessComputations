@@ -425,7 +425,6 @@ inline void serialize_to_binary(const mpz_class& value, size_t& len, std::vector
     mpz_export(buf.data(), &len, 1, sizeof(char), 0, 0, value.get_mpz_t());
 }
 
-//TODO HIER HIER HIER
 inline void serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len, std::vector<char> &buf) {
     const auto& [first, second] = halftriple;
 
@@ -446,21 +445,6 @@ inline void serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftri
 
     len = len_first + len_second;
 }
-
-// inline void serialize_halftriple(const std::tuple<mpz_class, mpz_class>& halftriple, size_t& len, std::vector<char> &buf) {
-//
-//     size_t tmp0;
-//     std::vector<char> tmp_buf;
-//     serialize_to_binary(std::get<0>(halftriple), tmp0, tmp_buf);
-//
-//     size_t tmp1;
-//     std::vector<char> tmp_buf1;
-//     serialize_to_binary(std::get<1>(halftriple), tmp1, tmp_buf1);
-//
-//     len = tmp0 + tmp1;
-//     buf.insert(buf.end(),tmp_buf.begin(),tmp_buf.end());
-//     buf.insert(buf.end(),tmp_buf1.begin(),tmp_buf1.end());
-// }
 
 inline std::tuple<mpz_class, mpz_class> deserialize_halftriple(const char* serialized, size_t len) {
     // Längen der beiden Werte extrahieren
